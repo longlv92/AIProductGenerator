@@ -1,0 +1,59 @@
+# Render Blueprint — deploy cả backend + frontend cùng lúc bằng "New > Blueprint" trên Render Dashboard,
+# trỏ vào repo GitHub chứa file này. Xem hướng dẫn đầy đủ trong DEPLOY.md ở thư mục gốc.
+#
+# Lưu ý quan trọng: backend dùng plan trả phí ("starter") vì cần persistent disk để KHÔNG mất dữ liệu
+# kết nối store (backend/data/store-connections.json) mỗi khi service tự ngủ/khởi động lại — free tier
+# của Render xóa sạch filesystem mỗi lần restart, không phù hợp để lưu token kết nối lâu dài.
+
+services:
+  - name: sapo-ai-tool-backend
+    type: web
+    runtime: node
+    plan: starter
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      # URL public của chính backend này — dùng để build redirect_uri OAuth. Sửa lại nếu đổi tên service.
+      - key: APP_URL
+        value: https://sapo-ai-tool-backend.onrender.com
+      # URL public của frontend — dùng cho CORS + redirect sau khi OAuth xong. Sửa lại nếu đổi tên service.
+      - key: CORS_ORIGIN
+        value: https://sapo-ai-tool-frontend.onrender.com
+      # Tự sinh ngẫu nhiên, không cần nhập tay — dùng ký cookie phiên đăng nhập theo store (xem session.ts).
+      - key: SESSION_SECRET
+        generateValue: true
+      # 4 biến dưới đây KHÔNG lưu trong file này — Render sẽ hỏi nhập trực tiếp trên dashboard lúc tạo
+      # Blueprint (giữ bí mật, không commit vào git).
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SAPO_OAUTH_CLIENT_ID
+        sync: false
+      - key: SAPO_OAUTH_CLIENT_SECRET
+        sync: false
+
+  - name: sapo-ai-tool-frontend
+    type: web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # URL public của backend — build cứng vào bundle tĩnh lúc build (Vite đọc biến này qua import.meta.env).
+      - key: VITE_BACKEND_URL
+        value: https://sapo-ai-tool-backend.onrender.com
+    routes:
+      # SPA: mọi đường dẫn không khớp file tĩnh đều trả về index.html để React Router (nếu có)/client tự xử lý.
+      - type: rewrite
+        source: /*
+        destination: /index.html
