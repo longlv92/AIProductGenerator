@@ -272,7 +272,13 @@ export async function fetchProductImageUrls(query: string, variationKey = '', co
     imageSearchCache.set(cacheKey, fetchProductImageUrlsUncached(query, aspectRatio))
   }
   const photos = await imageSearchCache.get(cacheKey)!
-  if (photos.length === 0) return []
+  if (photos.length === 0) {
+    // Không cache kết quả rỗng — thường do lỗi tạm thời (quá thời gian chờ, Pexels/Pixabay giới hạn lượt gọi) chứ không
+    // phải thật sự không có ảnh. Bài viết dùng chung 1 từ khóa cho cả chủ đề × ngành (xem mockGenerateArticle.ts),
+    // nên cache lại lần lỗi đó sẽ làm MỌI bài cùng chủ đề mất ảnh tới khi tải lại trang.
+    imageSearchCache.delete(cacheKey)
+    return []
+  }
   const startIndex = hashString(query + variationKey) % photos.length
   const n = Math.min(count, photos.length)
   // Có aspectRatio → crop từ ảnh gốc cho đúng tỉ lệ. Không có → dùng sẵn large2x (nhẹ hơn ảnh gốc nhiều).
@@ -293,7 +299,7 @@ async function fetchProductImageUrlsUncached(query: string, aspectRatio?: ImageA
     const params = new URLSearchParams({ query })
     if (aspectRatio) params.set('aspectRatio', aspectRatio)
     const res = await fetch(`${BACKEND_URL}/api/image-search?${params}`, {
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) return []
     const data = (await res.json()) as { photos?: Array<{ url: string; raw: string }> }
