@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import type { SapoBlog } from '../sapoApi'
 import type { ArticleGenerationConfig, ImageAspectRatio } from '../types'
-import { ARTICLE_TONES, ARTICLE_TOPICS, IMAGE_ASPECT_RATIOS, INDUSTRIES } from '../types'
+import { ARTICLE_TONES, ARTICLE_TOPICS, INDUSTRIES } from '../types'
+import { AspectRatioPicker } from './AspectRatioPicker'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { QuantitySegmented } from './QuantitySegmented'
+
+const ARTICLE_QUANTITY_OPTIONS = [5, 10, 20, 50]
 
 interface ArticleConfigPanelProps {
   config: ArticleGenerationConfig
@@ -47,15 +51,23 @@ export function ArticleConfigPanel({
         e.preventDefault()
         if (isValid && !isGenerating) onSubmit()
       }}
-      className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+      className="flex flex-col gap-4"
     >
-      <div className="section-card flex flex-col gap-4 lg:col-span-2">
+      <div className="section-card flex flex-col gap-4">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Thông tin tạo tin tức</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Thông tin tạo tin tức</h2>
+            {hasBlogs && (
+              <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Đã đồng bộ từ Sapo
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-sm text-slate-400">Chọn chủ đề và số lượng bài viết cần tạo — chọn blog để đăng vào (nếu có).</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="field-label">
               Ngành hàng của store <span className="text-red-500">*</span>
@@ -98,14 +110,7 @@ export function ArticleConfigPanel({
             <label className="field-label">
               Số lượng bài viết <span className="text-red-500">*</span>
             </label>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={50}
-              value={config.quantity}
-              onChange={(e) => onChange({ ...config, quantity: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })}
-            />
+            <QuantitySegmented options={ARTICLE_QUANTITY_OPTIONS} value={config.quantity} onChange={(quantity) => onChange({ ...config, quantity })} />
             <p className="text-xs text-slate-400">Tối đa 50 bài viết mỗi lần tạo.</p>
           </div>
 
@@ -122,33 +127,19 @@ export function ArticleConfigPanel({
             </label>
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <label className="field-label">Tỉ lệ ảnh bài viết</label>
-            <div className="flex flex-wrap gap-2">
-              {IMAGE_ASPECT_RATIOS.map((ratio) => (
-                <button
-                  key={ratio.value}
-                  type="button"
-                  onClick={() => onChange({ ...config, imageAspectRatio: ratio.value as ImageAspectRatio })}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    config.imageAspectRatio === ratio.value
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {ratio.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AspectRatioPicker
+            label="Tỉ lệ ảnh bài viết"
+            value={config.imageAspectRatio}
+            onChange={(imageAspectRatio: ImageAspectRatio) => onChange({ ...config, imageAspectRatio })}
+          />
 
           {blogsLoading ? (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">Blog đăng bài</label>
               <p className="input flex items-center text-sm text-slate-400">Đang tải blog từ store...</p>
             </div>
           ) : hasBlogs ? (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">Blog đăng bài</label>
               <p className="-mt-0.5 text-xs text-slate-400">Chọn 1 hoặc nhiều — bài viết tạo ra sẽ được rải đều vào các blog đã chọn.</p>
               <MultiSelectDropdown
@@ -161,7 +152,7 @@ export function ArticleConfigPanel({
           ) : null}
 
           {!blogsLoading && (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">{hasBlogs ? 'Thêm blog khác (nếu cần)' : 'Tạo blog mới (nếu store chưa có sẵn)'}</label>
               <div className="flex gap-2">
                 <input
@@ -187,47 +178,30 @@ export function ArticleConfigPanel({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="section-card flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Tùy chọn bổ sung</h2>
-          <p className="mt-0.5 text-sm text-slate-400">Không bắt buộc — giúp AI viết bài sát ý bạn hơn.</p>
-        </div>
+          <button
+            type="submit"
+            disabled={!isValid || isGenerating}
+            className="mt-2 inline-flex h-[42px] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
+          >
+            {isGenerating && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+            {isGenerating ? 'Đang tạo...' : 'Tạo bài viết'}
+          </button>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="field-label">Yêu cầu bổ sung</label>
-          <textarea
-            className="input min-h-[104px] resize-y"
-            placeholder="Ví dụ: nhắc tới sản phẩm mới ra mắt, giọng văn ngắn gọn..."
-            value={config.extraPrompt}
-            onChange={(e) => onChange({ ...config, extraPrompt: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={!isValid || isGenerating}
-          className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
-        >
-          {isGenerating && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-          {isGenerating ? 'Đang tạo...' : 'Tạo bài viết'}
-        </button>
-
-        {isGenerating && progress && (
-          <div className="flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-all duration-300"
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
+          {isGenerating && progress && (
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+              <span className="whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400">
+                {progress.done}/{progress.total}
+              </span>
             </div>
-            <span className="whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400">
-              {progress.done}/{progress.total}
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </form>
   )

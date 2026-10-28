@@ -1,24 +1,32 @@
 export type Industry =
-  | 'Thời trang'
-  | 'Giày dép'
-  | 'Mỹ phẩm'
-  | 'Đồ gia dụng'
-  | 'Điện tử'
-  | 'Thực phẩm'
-  | 'Mẹ & Bé'
-  | 'Phụ kiện'
-  | 'Nội thất'
+  | 'Thời trang - Trang sức'
+  | 'Mỹ phẩm - Làm đẹp'
+  | 'Thực phẩm - Nhà hàng'
+  | 'Đồ gia dụng - Sinh hoạt'
+  | 'Hóa phẩm - Vệ sinh nhà cửa'
+  | 'Nội thất - Trang trí'
+  | 'Sách - Văn phòng phẩm'
+  | 'Thủ công - Mỹ nghệ - Quà tặng'
+  | 'Công nghệ - Kỹ thuật số'
+  | 'Ô tô - Xe máy'
+  | 'Thiết bị điện'
+  | 'Thể thao - Dịch vụ'
+  | 'Khác'
 
 export const INDUSTRIES: Industry[] = [
-  'Thời trang',
-  'Giày dép',
-  'Mỹ phẩm',
-  'Đồ gia dụng',
-  'Điện tử',
-  'Thực phẩm',
-  'Mẹ & Bé',
-  'Phụ kiện',
-  'Nội thất',
+  'Thời trang - Trang sức',
+  'Mỹ phẩm - Làm đẹp',
+  'Thực phẩm - Nhà hàng',
+  'Đồ gia dụng - Sinh hoạt',
+  'Hóa phẩm - Vệ sinh nhà cửa',
+  'Nội thất - Trang trí',
+  'Sách - Văn phòng phẩm',
+  'Thủ công - Mỹ nghệ - Quà tặng',
+  'Công nghệ - Kỹ thuật số',
+  'Ô tô - Xe máy',
+  'Thiết bị điện',
+  'Thể thao - Dịch vụ',
+  'Khác',
 ]
 
 export type PriceSegment = 'Bình dân' | 'Trung cấp' | 'Cao cấp'
@@ -92,9 +100,13 @@ export interface GenerationConfig {
   industry: Industry | string
   storeUrl: string
   quantity: number
-  priceSegment: PriceSegment
+  /** Khoảng giá sản phẩm (VNĐ) người dùng tự kéo chọn — xem ConfigPanel.tsx + mockGenerate.ts:getPriceRangeBounds(). */
+  priceMin: number
+  priceMax: number
   extraPrompt: string
   imageAspectRatio: ImageAspectRatio
+  /** true = đăng công khai ngay (mặc định, giữ nguyên hành vi trước đây); false = đăng ở trạng thái ẩn/nháp trên Sapo. */
+  publishNow: boolean
 }
 
 export type AppMode = 'products' | 'articles'

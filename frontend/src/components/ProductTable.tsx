@@ -22,6 +22,7 @@ const STATUS_LABEL: Record<Product['status'], { text: string; className: string 
   error: { text: 'Lỗi', className: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
 
+/** Bảng preview gọn: mỗi dòng chỉ còn ảnh nhỏ + 1 dòng meta thay vì nhiều cột rời (Danh mục/SKU/Tag riêng) — theo đúng mật độ ở Tao-du-lieu-demo-Sapo.html mục "3a". */
 export function ProductTable({
   products,
   aspectRatio,
@@ -35,19 +36,18 @@ export function ProductTable({
 }: ProductTableProps) {
   return (
     <div className="section-card overflow-x-auto p-0">
-      <table className="w-full min-w-[900px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-xs text-slate-400 dark:border-slate-800">
-            <th className="w-10 px-4 py-3">
+            <th className="w-10 px-4 py-2.5">
               <Checkbox checked={allSelected} onChange={onToggleSelectAll} title="Chọn tất cả" />
             </th>
-            <th className="w-16 px-2 py-3 font-medium">Ảnh</th>
-            <th className="px-2 py-3 font-medium">Sản phẩm</th>
-            <th className="px-2 py-3 font-medium">Giá</th>
-            <th className="px-2 py-3 font-medium">Danh mục / SKU</th>
-            <th className="px-2 py-3 font-medium">Tag</th>
-            <th className="px-2 py-3 font-medium">Trạng thái</th>
-            <th className="px-4 py-3 font-medium text-right">Hành động</th>
+            <th className="w-12 px-2 py-2.5 font-medium">Ảnh</th>
+            <th className="px-2 py-2.5 font-medium">Sản phẩm</th>
+            <th className="px-2 py-2.5 text-right font-medium">Giá</th>
+            <th className="px-2 py-2.5 text-right font-medium">Tồn kho</th>
+            <th className="px-2 py-2.5 font-medium">Trạng thái</th>
+            <th className="px-4 py-2.5 text-right font-medium">Hành động</th>
           </tr>
         </thead>
         <tbody>
@@ -62,55 +62,44 @@ export function ProductTable({
             return (
               <tr
                 key={product.id}
-                className={`border-b border-slate-100 last:border-0 dark:border-slate-800 ${selected ? 'bg-blue-50/60 dark:bg-blue-500/5' : ''}`}
+                onClick={() => onToggleSelect(product.id)}
+                className={`cursor-pointer border-b border-slate-100 last:border-0 dark:border-slate-800 ${selected ? 'bg-blue-50/60 dark:bg-blue-500/5' : ''}`}
               >
-                <td className="px-4 py-3 align-top">
+                <td className="px-4 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected} onChange={() => onToggleSelect(product.id)} title="Chọn sản phẩm" />
                 </td>
-                <td className="px-2 py-3 align-top">
+                <td className="px-2 py-2 align-middle">
                   <ProductImage
                     seed={product.sku}
                     category={product.category}
                     name={product.name}
                     imageKeyword={product.imageKeyword}
                     aspectRatio={aspectRatio}
-                    className="w-12"
+                    className="w-10"
                     rounded="rounded-md"
                   />
                 </td>
-                <td className="max-w-[240px] px-2 py-3 align-top">
+                <td className="max-w-[320px] py-2 align-middle">
                   <p className="truncate font-medium text-slate-900 dark:text-slate-100">{product.name}</p>
-                  {product.collection && (
-                    <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-                      📁 {product.collection}
-                    </span>
-                  )}
+                  <p className="truncate text-xs text-slate-400">
+                    {product.category} · {product.brand} · SKU {product.sku}
+                    {product.collection && <> · 📁 {product.collection}</>}
+                  </p>
                   {isError && <p className="mt-0.5 truncate text-xs text-red-600 dark:text-red-400">{product.errorReason}</p>}
                 </td>
-                <td className="whitespace-nowrap px-2 py-3 align-top">
+                <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                   <span className="font-semibold text-blue-600 dark:text-blue-400">{formatVnd(product.price)}</span>
                   {pct !== null && (
                     <span className="ml-1.5 text-xs text-slate-400 line-through">{formatVnd(product.compareAtPrice)}</span>
                   )}
                 </td>
-                <td className="px-2 py-3 align-top text-slate-500 dark:text-slate-400">
-                  {product.category}
-                  <br />
-                  <span className="text-xs">{product.brand} · SKU {product.sku}</span>
+                <td className="px-2 py-2 text-right align-middle tabular-nums text-slate-500 dark:text-slate-400">
+                  {product.stockQuantity}
                 </td>
-                <td className="max-w-[200px] px-2 py-3 align-top">
-                  <div className="flex flex-wrap gap-1">
-                    {product.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-2 py-3 align-top">
+                <td className="px-2 py-2 align-middle">
                   <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.text}</span>
                 </td>
-                <td className="px-4 py-3 align-top">
+                <td className="px-4 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={() => onEdit(product)}

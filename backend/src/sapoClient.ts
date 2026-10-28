@@ -22,6 +22,8 @@ export interface SapoProductInput {
   weightUnit: string
   /** Các URL ảnh THẬT đã khớp sản phẩm (qua Pexels) — chỉ set khi tìm được ảnh thật, không phải ảnh placeholder. */
   imageUrls?: string[]
+  /** true = đăng công khai ngay; false = gửi published_on: null để Sapo lưu ở trạng thái ẩn/nháp. */
+  publishNow: boolean
 }
 
 export interface PostProductResult {
@@ -55,7 +57,7 @@ async function sapoRequestAuthed(
   storeUrl: string,
   header: { name: string; value: string },
   path: string,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE',
   body?: unknown,
 ): Promise<unknown> {
   const endpoint = `https://${normalizeStoreUrl(storeUrl)}${path}`
@@ -74,7 +76,9 @@ async function sapoRequestAuthed(
     throw new Error(`Sapo API trả lỗi ${response.status} ${response.statusText}: ${responseBody.slice(0, 300)}`)
   }
 
-  return response.json()
+  // DELETE thành công của Sapo có thể trả về body rỗng (204/200 không JSON) — tránh crash khi parse JSON rỗng.
+  const text = await response.text()
+  return text ? JSON.parse(text) : {}
 }
 
 function parseCollectionsResponse(data: unknown): SapoCollection[] {
@@ -169,6 +173,10 @@ export async function createProduct(storeUrl: string, input: SapoProductInput): 
       product_type: input.category,
       vendor: input.brand,
       tags: input.tags.join(', '),
+      // published_on: null — tài liệu Sapo xác nhận đây là cách tạo sản phẩm ở trạng thái CHƯA xuất bản
+      // (ẩn/nháp). Bỏ qua field này hoàn toàn khi publishNow=true để giữ đúng hành vi mặc định trước đây
+      // (Sapo tự xuất bản ngay khi không gửi published_on).
+      ...(input.publishNow ? {} : { published_on: null }),
       ...(input.imageUrls && input.imageUrls.length > 0
         ? { images: input.imageUrls.map((src) => ({ src })) }
         : {}),
@@ -208,4 +216,54 @@ export async function postProduct(
   const collection = await findOrCreateCollection(storeUrl, collectionName)
   await addProductToCollection(storeUrl, productId, collection.id)
   return { productId, productUrl, collection }
+}
+
+/**
+ * Tìm toàn bộ sản phẩm có gắn tag `demo` (tag hệ thống tự gắn khi sinh bằng tool này — xem
+ * mockGenerate.ts) rồi xóa hẳn khỏi Sapo. Trả về số lượng đã xóa.
+ *
+ * Sapo KHÔNG hỗ trợ tham số lọc theo tag ở GET /admin/products.json (đã tra cứu tài liệu chính thức) —
+ * nên phải tự phân trang qua TOÀN BỘ sản phẩm của store (chỉ lấy field id+tags cho nhẹ), tự lọc tag ở phía
+ * mình, rồi mới gọi DELETE từng sản phẩm khớp. Chấp nhận chậm hơn 1 API filter có sẵn vì không có lựa chọn
+ * khác — tool cho 1 người dùng, store demo thường không có hàng chục nghìn sản phẩm.
+ */
+export async function deleteProductsByTag(storeUrl: string, tag: string): Promise<{ deleted: number; failed: number }> {
+  const { storeUrl: resolvedUrl, header } = getStoreAuthHeader(storeUrl)
+  const PAGE_SIZE = 250
+  let page = 1
+  let deleted = 0
+  let failed = 0
+
+  while (true) {
+    const data = (await sapoRequestAuthed(
+      resolvedUrl,
+      header,
+      `/admin/products.json?limit=${PAGE_SIZE}&page=${page}&fields=id,tags`,
+      'GET',
+    )) as { products?: Array<{ id: number | string; tags?: string }> }
+
+    const products = data.products ?? []
+    if (products.length === 0) break
+
+    const matched = products.filter((p) =>
+      (p.tags ?? '')
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .includes(tag.toLowerCase()),
+    )
+
+    for (const p of matched) {
+      try {
+        await sapoRequestAuthed(resolvedUrl, header, `/admin/products/${p.id}.json`, 'DELETE')
+        deleted++
+      } catch {
+        failed++
+      }
+    }
+
+    if (products.length < PAGE_SIZE) break
+    page++
+  }
+
+  return { deleted, failed }
 }

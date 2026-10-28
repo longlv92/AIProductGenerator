@@ -24,7 +24,7 @@ export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, 
 
     async function resolve() {
       if (imageKeyword) {
-        const matched = await fetchProductImageUrl(imageKeyword, seed)
+        const matched = await fetchProductImageUrl(imageKeyword, seed, aspectRatio)
         if (cancelled) return
         if (matched) {
           setSrc(matched)

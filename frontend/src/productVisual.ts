@@ -22,15 +22,19 @@ export const GRADIENTS = [
 ]
 
 export const CATEGORY_EMOJI: Record<string, string> = {
-  'Thời trang': '👕',
-  'Giày dép': '👟',
-  'Mỹ phẩm': '💄',
-  'Đồ gia dụng': '🏠',
-  'Điện tử': '🔌',
-  'Thực phẩm': '🍯',
-  'Mẹ & Bé': '🍼',
-  'Phụ kiện': '👜',
-  'Nội thất': '🛋️',
+  'Thời trang - Trang sức': '👕',
+  'Mỹ phẩm - Làm đẹp': '💄',
+  'Thực phẩm - Nhà hàng': '🍯',
+  'Đồ gia dụng - Sinh hoạt': '🏠',
+  'Hóa phẩm - Vệ sinh nhà cửa': '🧴',
+  'Nội thất - Trang trí': '🛋️',
+  'Sách - Văn phòng phẩm': '📚',
+  'Thủ công - Mỹ nghệ - Quà tặng': '🎁',
+  'Công nghệ - Kỹ thuật số': '🔌',
+  'Ô tô - Xe máy': '🏍️',
+  'Thiết bị điện': '📺',
+  'Thể thao - Dịch vụ': '🏀',
+  'Khác': '🍼',
   // Chủ đề tin tức
   'Khuyến mãi': '🎉',
   'Hướng dẫn sử dụng': '📖',

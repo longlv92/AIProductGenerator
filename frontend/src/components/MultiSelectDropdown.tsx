@@ -57,16 +57,16 @@ export function MultiSelectDropdown({ options, selectedIds, onToggle, placeholde
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-800">
           {options.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-slate-400">Không có lựa chọn nào.</p>
+            <p className="px-3 py-2 text-xs text-slate-400">Không có lựa chọn nào.</p>
           ) : (
             options.map((opt) => {
               const selected = selectedIds.includes(opt.id)
               return (
                 <label
                   key={opt.id}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-700"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2.5 text-xs transition hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   <Checkbox checked={selected} onChange={() => onToggle(opt.id)} />
                   <span className="truncate text-slate-700 dark:text-slate-200">{opt.label}</span>

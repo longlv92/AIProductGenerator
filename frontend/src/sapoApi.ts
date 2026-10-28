@@ -58,6 +58,8 @@ export interface PostProductInput {
   weightUnit: string
   /** Các URL ảnh THẬT đã khớp sản phẩm (qua Pexels) — bỏ trống/mảng rỗng nếu chưa tìm được ảnh thật. */
   imageUrls?: string[]
+  /** true = đăng công khai ngay; false = đăng ở trạng thái ẩn/nháp trên Sapo (xem backend/sapoClient.ts:createProduct). */
+  publishNow: boolean
 }
 
 export interface PostProductResult {
@@ -117,6 +119,40 @@ export async function postProductToSapo(
         err instanceof Error ? err.message : String(err)
       }`,
     }
+  }
+}
+
+export interface DeleteDemoDataResult {
+  ok: boolean
+  deletedProducts?: number
+  deletedArticles?: number
+  error?: string
+}
+
+/**
+ * Xóa hẳn toàn bộ sản phẩm + bài viết demo (tag `demo`) của 1 store khỏi Sapo — xem
+ * backend/routes/cleanup.ts. Hành động KHÔNG thể hoàn tác, nơi gọi (App.tsx) phải xác nhận với
+ * người dùng trước khi gọi hàm này.
+ */
+export async function deleteDemoData(storeUrl: string): Promise<DeleteDemoDataResult> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/cleanup/demo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeUrl }),
+      credentials: 'include',
+      signal: AbortSignal.timeout(120000),
+    })
+    const data = (await res.json().catch(() => null)) as
+      | { ok?: boolean; deletedProducts?: number; deletedArticles?: number; error?: string }
+      | null
+
+    if (res.ok && data?.ok) {
+      return { ok: true, deletedProducts: data.deletedProducts ?? 0, deletedArticles: data.deletedArticles ?? 0 }
+    }
+    return { ok: false, error: data?.error ?? 'Xóa dữ liệu demo thất bại, vui lòng thử lại.' }
+  } catch (err) {
+    return { ok: false, error: `Không gọi được backend. Chi tiết: ${err instanceof Error ? err.message : String(err)}` }
   }
 }
 
@@ -201,11 +237,14 @@ const CROP_SIZE_BY_RATIO: Record<ImageAspectRatio, { w: number; h: number }> = {
 }
 
 /**
- * Cắt ảnh gốc Pexels đúng tỉ lệ khung hình đã chọn — Pexels CDN hỗ trợ resize/crop qua tham số URL
- * (`fit=crop&w=&h=`) nên không cần tự xử lý ảnh ở backend. Không truyền aspectRatio → giữ nguyên ảnh gốc.
+ * Cắt ảnh gốc đúng tỉ lệ khung hình đã chọn — CHỈ hoạt động với ảnh từ Pexels CDN (images.pexels.com), vì
+ * đây là dịch vụ resize/crop qua tham số URL (`fit=crop&w=&h=`) riêng của Pexels. Ảnh từ nguồn khác (VD
+ * Pixabay — xem backend/routes/images.ts) không hỗ trợ crop qua URL nên giữ nguyên kích thước gốc; khi
+ * hiển thị trên giao diện vẫn được CSS `object-cover` tự crop vừa khung, chỉ ảnh THẬT đăng lên Sapo mới
+ * không được crop sẵn đúng tỉ lệ trong trường hợp này. Không truyền aspectRatio → giữ nguyên ảnh gốc.
  */
 function cropImageUrl(rawUrl: string, aspectRatio?: ImageAspectRatio): string {
-  if (!aspectRatio) return rawUrl
+  if (!aspectRatio || !rawUrl.includes('images.pexels.com')) return rawUrl
   const { w, h } = CROP_SIZE_BY_RATIO[aspectRatio]
   const separator = rawUrl.includes('?') ? '&' : '?'
   return `${rawUrl}${separator}auto=compress&cs=tinysrgb&fit=crop&w=${w}&h=${h}`

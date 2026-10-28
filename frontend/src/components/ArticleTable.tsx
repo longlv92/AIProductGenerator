@@ -1,3 +1,4 @@
+import { wordCount } from '../format'
 import type { Article, ImageAspectRatio } from '../types'
 import { Checkbox } from './Checkbox'
 import { ProductImage } from './ProductImage'
@@ -21,6 +22,7 @@ const STATUS_LABEL: Record<Article['status'], { text: string; className: string 
   error: { text: 'Lỗi', className: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
 
+/** Bảng preview gọn, cùng mật độ với ProductTable — cột "Độ dài" tính từ nội dung thật thay vì bịa số. */
 export function ArticleTable({
   articles,
   aspectRatio,
@@ -34,19 +36,18 @@ export function ArticleTable({
 }: ArticleTableProps) {
   return (
     <div className="section-card overflow-x-auto p-0">
-      <table className="w-full min-w-[900px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-xs text-slate-400 dark:border-slate-800">
-            <th className="w-10 px-4 py-3">
+            <th className="w-10 px-4 py-2.5">
               <Checkbox checked={allSelected} onChange={onToggleSelectAll} title="Chọn tất cả" />
             </th>
-            <th className="w-16 px-2 py-3 font-medium">Ảnh</th>
-            <th className="px-2 py-3 font-medium">Bài viết</th>
-            <th className="px-2 py-3 font-medium">Tác giả</th>
-            <th className="px-2 py-3 font-medium">Blog</th>
-            <th className="px-2 py-3 font-medium">Tag</th>
-            <th className="px-2 py-3 font-medium">Trạng thái</th>
-            <th className="px-4 py-3 font-medium text-right">Hành động</th>
+            <th className="w-12 px-2 py-2.5 font-medium">Ảnh</th>
+            <th className="px-2 py-2.5 font-medium">Bài viết</th>
+            <th className="px-2 py-2.5 font-medium">Chuyên mục</th>
+            <th className="px-2 py-2.5 text-right font-medium">Độ dài</th>
+            <th className="px-2 py-2.5 font-medium">Trạng thái</th>
+            <th className="px-4 py-2.5 text-right font-medium">Hành động</th>
           </tr>
         </thead>
         <tbody>
@@ -60,47 +61,40 @@ export function ArticleTable({
             return (
               <tr
                 key={article.id}
-                className={`border-b border-slate-100 last:border-0 dark:border-slate-800 ${selected ? 'bg-blue-50/60 dark:bg-blue-500/5' : ''}`}
+                onClick={() => onToggleSelect(article.id)}
+                className={`cursor-pointer border-b border-slate-100 last:border-0 dark:border-slate-800 ${selected ? 'bg-blue-50/60 dark:bg-blue-500/5' : ''}`}
               >
-                <td className="px-4 py-3 align-top">
+                <td className="px-4 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={selected} onChange={() => onToggleSelect(article.id)} title="Chọn bài viết" />
                 </td>
-                <td className="px-2 py-3 align-top">
+                <td className="px-2 py-2 align-middle">
                   <ProductImage
                     seed={article.id}
                     category={article.blog}
                     name={article.title}
                     imageKeyword={article.imageKeyword}
                     aspectRatio={aspectRatio}
-                    className="w-12"
+                    className="w-10"
                     rounded="rounded-md"
                   />
                 </td>
-                <td className="max-w-[240px] px-2 py-3 align-top">
+                <td className="max-w-[320px] py-2 align-middle">
                   <p className="truncate font-medium text-slate-900 dark:text-slate-100">{article.title}</p>
+                  <p className="truncate text-xs text-slate-400">
+                    {article.author} · {article.excerpt}
+                  </p>
                   {isError && <p className="mt-0.5 truncate text-xs text-red-600 dark:text-red-400">{article.errorReason}</p>}
                 </td>
-                <td className="px-2 py-3 align-top text-slate-500 dark:text-slate-400">{article.author}</td>
-                <td className="px-2 py-3 align-top">
-                  {article.blog && (
-                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-                      📰 {article.blog}
-                    </span>
-                  )}
+                <td className="px-2 py-2 align-middle text-slate-500 dark:text-slate-400">
+                  {article.blog && <>📰 {article.blog}</>}
                 </td>
-                <td className="max-w-[200px] px-2 py-3 align-top">
-                  <div className="flex flex-wrap gap-1">
-                    {article.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
+                <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums text-slate-500 dark:text-slate-400">
+                  {wordCount(article.content)} từ
                 </td>
-                <td className="px-2 py-3 align-top">
+                <td className="px-2 py-2 align-middle">
                   <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.text}</span>
                 </td>
-                <td className="px-4 py-3 align-top">
+                <td className="px-4 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={() => onEdit(article)}

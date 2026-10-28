@@ -8,16 +8,18 @@ import { ConnectStoreScreen } from './components/ConnectStoreScreen'
 import { EditArticleModal } from './components/EditArticleModal'
 import { EditProductModal } from './components/EditProductModal'
 import { EmptyState } from './components/EmptyState'
+import { formatVnd } from './format'
 import { ProductCard } from './components/ProductCard'
 import { ProductListRow } from './components/ProductListRow'
 import { ProductTable } from './components/ProductTable'
 import { ProductToolbar } from './components/ProductToolbar'
 import { ResultsHeader } from './components/ResultsHeader'
-import { generateBarcode, generateMockProduct, slugifySku } from './mockGenerate'
+import { generateMockProduct, getPriceRangeBounds, slugifySku } from './mockGenerate'
 import { generateMockArticle } from './mockGenerateArticle'
 import {
   BACKEND_URL,
   connectStore,
+  deleteDemoData,
   fetchProductImageUrls,
   fetchStoreBlogs,
   fetchStoreCollections,
@@ -51,18 +53,19 @@ function buildProductFromAi(content: AiGeneratedProductContent, index: number, c
     name: content.name,
     imageKeyword: content.imageKeyword,
     sku: slugifySku(content.name, index),
-    barcode: generateBarcode(),
+    // Giá vốn/mã vạch/tag để trống — không tự bịa, người dùng tự điền nếu cần (xem EditProductModal).
+    barcode: '',
     unit: 'Cái',
     shortDescription: content.shortDescription,
     description: content.description,
     price: content.price,
     compareAtPrice: content.compareAtPrice,
-    costPrice: Math.round(content.price * 0.65),
+    costPrice: 0,
     applyTax: false,
     category: content.category,
     brand: content.brand,
     collection: collectionName ?? '',
-    tags: content.tags,
+    tags: [],
     warehouseLocation: 'Cửa hàng chính',
     manageStock: true,
     allowNegativeStock: false,
@@ -130,12 +133,14 @@ function clearSavedStoreUrl() {
 
 export default function App() {
   const [config, setConfig] = useState<GenerationConfig>(() => ({
-    industry: 'Thời trang',
+    industry: 'Thời trang - Trang sức',
     storeUrl: loadSavedStoreUrl() ?? '',
     quantity: 10,
-    priceSegment: 'Trung cấp',
+    priceMin: getPriceRangeBounds('Thời trang - Trang sức')[0],
+    priceMax: getPriceRangeBounds('Thời trang - Trang sức')[1],
     extraPrompt: '',
     imageAspectRatio: '1:1',
+    publishNow: true,
   }))
 
   const [products, setProducts] = useState<Product[]>([])
@@ -159,7 +164,7 @@ export default function App() {
   const [articleConfig, setArticleConfig] = useState<ArticleGenerationConfig>(() => ({
     topic: 'Khuyến mãi',
     // Mặc định theo đúng ngành hàng đang chọn ở tab Sản phẩm — tránh bài viết lạc chủ đề so với thứ store đang bán.
-    industry: 'Thời trang',
+    industry: 'Thời trang - Trang sức',
     storeUrl: loadSavedStoreUrl() ?? '',
     quantity: 5,
     tone: 'Thân thiện',
@@ -179,8 +184,29 @@ export default function App() {
   const [aiArticleUnavailable, setAiArticleUnavailable] = useState(false)
   const [aiArticleError, setAiArticleError] = useState<string | null>(null)
   const [storeOwnerName, setStoreOwnerName] = useState<string | null>(null)
+  const [isDeletingDemoData, setIsDeletingDemoData] = useState(false)
+  const [deleteDemoMessage, setDeleteDemoMessage] = useState<string | null>(null)
 
   const stage: Stage = connectionStatus !== 'connected' ? 'connect' : 'generator'
+
+  /**
+   * Xóa hẳn toàn bộ sản phẩm + bài viết demo (tag `demo`) của store đang kết nối khỏi Sapo — hành động
+   * không thể hoàn tác nên bắt xác nhận trước (xem sapoApi.ts:deleteDemoData).
+   */
+  async function handleDeleteDemoData() {
+    if (!window.confirm(`Xóa HẲN toàn bộ sản phẩm và bài viết demo (gắn tag "demo") khỏi ${config.storeUrl}?\n\nKhông thể hoàn tác.`)) {
+      return
+    }
+    setIsDeletingDemoData(true)
+    setDeleteDemoMessage(null)
+    const result = await deleteDemoData(config.storeUrl)
+    setIsDeletingDemoData(false)
+    setDeleteDemoMessage(
+      result.ok
+        ? `Đã xóa ${result.deletedProducts ?? 0} sản phẩm và ${result.deletedArticles ?? 0} bài viết demo.`
+        : `Lỗi: ${result.error}`,
+    )
+  }
 
   async function loadCollectionsFor(storeUrl: string) {
     setCollectionsLoading(true)
@@ -313,6 +339,21 @@ export default function App() {
       return chosenCollections.length > 0 ? chosenCollections[globalIndex % chosenCollections.length].name : undefined
     }
 
+    // Dữ liệu mẫu: đếm số thứ tự RIÊNG trong từng danh mục (tiếp nối số sản phẩm của danh mục đó đã có trong
+    // danh sách) + bắt đầu từ 1 điểm ngẫu nhiên, để các lần tạo khác nhau (VD sau khi tải lại trang) không lặp
+    // lại đúng bộ tên đã đăng lên store lần trước. `usedNames` chặn trùng tên với mọi sản phẩm đã có.
+    const usedNames = new Set(products.map((p) => p.name.toLowerCase()))
+    const variantCounters = new Map<string, { next: number; offset: number }>()
+    function nextVariant(collectionName: string | undefined): { variantIndex: number; variantOffset: number } {
+      const key = collectionName ?? ''
+      const counter = variantCounters.get(key) ?? {
+        next: products.filter((p) => p.collection === key).length,
+        offset: Math.floor(Math.random() * 1000),
+      }
+      variantCounters.set(key, { ...counter, next: counter.next + 1 })
+      return { variantIndex: counter.next, variantOffset: counter.offset }
+    }
+
     setIsGenerating(true)
     setAiError(null)
     setProgress({ done: startCount, total: target })
@@ -324,7 +365,7 @@ export default function App() {
 
       const result = await generateProductsBatch({
         industry: config.industry,
-        priceSegment: config.priceSegment,
+        priceSegment: `${formatVnd(config.priceMin)} - ${formatVnd(config.priceMax)}`,
         extraPrompt: config.extraPrompt,
         count: batchSize,
         collectionName: collectionForIndex(batchStartIndex),
@@ -343,12 +384,15 @@ export default function App() {
         for (let i = 0; i < batchSize; i++) {
           await delay(200 + Math.random() * 200)
           const globalIndex = batchStartIndex + i
+          const collectionName = collectionForIndex(globalIndex)
           const product = generateMockProduct(
             config.industry,
-            config.priceSegment,
+            config.priceMin,
+            config.priceMax,
             config.extraPrompt,
             globalIndex,
-            collectionForIndex(globalIndex),
+            collectionName,
+            { ...nextVariant(collectionName), usedNames },
           )
           setProducts((prev) => [...prev, product])
         }
@@ -393,6 +437,7 @@ export default function App() {
         weight: product.weight,
         weightUnit: product.weightUnit,
         imageUrls,
+        publishNow: config.publishNow,
       },
       product.collection || undefined,
     )
@@ -650,64 +695,77 @@ export default function App() {
   const allArticlesSelected = articles.length > 0 && selectedArticleIds.size === articles.length
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-screen flex-col bg-[#E9ECF1] dark:bg-slate-950">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-              AI
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI Product Generator cho Sapo</h1>
-              <p className="text-sm text-slate-400">Sinh sản phẩm bằng AI theo ngành nghề và đẩy lên website Sapo.</p>
-            </div>
-          </div>
+        <div className="mx-auto flex h-[60px] max-w-[1440px] items-center gap-3 px-4 sm:px-6">
+          <span className="shrink-0 text-[15px] font-semibold text-slate-900 dark:text-slate-100">AI Product Generator cho Sapo</span>
 
           {stage === 'generator' && (
-            <div className="hidden flex-col items-end text-xs sm:flex">
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {config.storeUrl}
-              </span>
+            <span className="hidden items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs sm:inline-flex dark:bg-slate-800">
+              {storeOwnerName && <span className="font-semibold text-slate-700 dark:text-slate-200">{storeOwnerName}</span>}
+              <span className="font-mono text-[11px] text-slate-400">{config.storeUrl}</span>
+            </span>
+          )}
+
+          {stage === 'generator' && (
+            <div className="ml-auto hidden shrink-0 items-center gap-3 text-xs sm:flex">
+              {deleteDemoMessage && (
+                <span className="max-w-[220px] truncate text-slate-400" title={deleteDemoMessage}>
+                  {deleteDemoMessage}
+                </span>
+              )}
               <button onClick={resetToConnect} className="text-slate-400 hover:text-blue-600 hover:underline dark:hover:text-blue-400">
                 Đổi store
+              </button>
+              <button
+                onClick={() => void handleDeleteDemoData()}
+                disabled={isDeletingDemoData}
+                className="h-[38px] rounded-lg border border-slate-300 px-3.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                title='Xóa toàn bộ sản phẩm + bài viết đã đăng từ tool này (gắn tag "demo") khỏi Sapo'
+              >
+                {isDeletingDemoData ? 'Đang xóa...' : 'Xóa dữ liệu demo cũ'}
               </button>
             </div>
           )}
         </div>
+      </header>
 
-        {stage === 'generator' && (
-          <div className="mx-auto flex max-w-6xl gap-1 px-4 sm:px-6">
+      {stage === 'generator' && (
+        <div className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="mx-auto flex max-w-[1440px] items-center gap-5 px-4 sm:px-6">
             <button
               onClick={() => setMode('products')}
-              className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 py-3 text-sm transition ${
                 mode === 'products'
-                  ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  ? 'font-semibold text-slate-900 shadow-[inset_0_-2px_0_#007AFF] dark:text-slate-100'
+                  : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              🛍️ Sản phẩm
+              Sản phẩm <span className="font-normal text-slate-400">{products.length}</span>
             </button>
             <button
               onClick={() => setMode('articles')}
-              className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 py-3 text-sm transition ${
                 mode === 'articles'
-                  ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  ? 'font-semibold text-slate-900 shadow-[inset_0_-2px_0_#007AFF] dark:text-slate-100'
+                  : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              📰 Tin tức
+              Tin tức <span className="font-normal text-slate-400">{articles.length}</span>
             </button>
+            <span className="ml-auto rounded bg-[#FFF4E0] px-2 py-0.5 font-mono text-xs font-semibold text-[#A15C00] dark:bg-amber-500/10 dark:text-amber-400">
+              tag: demo
+            </span>
           </div>
-        )}
-      </header>
+        </div>
+      )}
 
       {stage === 'connect' && (
         <ConnectStoreScreen onConnect={(url, key, secret) => void handleConnect(url, key, secret)} isConnecting={isConnecting} connectError={connectError} />
       )}
 
       {stage === 'generator' && mode === 'products' && (
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+        <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-6">
           {aiUnavailable && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-400">
               <span>⚠️</span>
@@ -721,30 +779,22 @@ export default function App() {
             </div>
           )}
 
-          <ConfigPanel
-            config={config}
-            onChange={setConfig}
-            onSubmit={handleGenerate}
-            isGenerating={isGenerating}
-            progress={progress}
-            collections={collections}
-            collectionsLoading={collectionsLoading}
-            selectedCollectionIds={selectedCollectionIds}
-            onToggleCollection={toggleCollection}
-            onAddCollection={addCollection}
-          />
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+            <ConfigPanel
+              config={config}
+              onChange={setConfig}
+              onSubmit={handleGenerate}
+              isGenerating={isGenerating}
+              progress={progress}
+              collections={collections}
+              collectionsLoading={collectionsLoading}
+              selectedCollectionIds={selectedCollectionIds}
+              onToggleCollection={toggleCollection}
+              onAddCollection={addCollection}
+            />
 
-          <section className="flex flex-col gap-4">
-            {products.length > 0 && (
-              <>
-                <ResultsHeader
-                  total={targetTotal}
-                  createdCount={createdCount}
-                  storeUrl={config.storeUrl}
-                  onPostAll={() => void handlePostAll()}
-                  postAllDisabled={!hasPostable || isGenerating}
-                />
-
+            <section className="flex min-w-0 flex-col gap-4">
+              {products.length > 0 && (
                 <ProductToolbar
                   totalCount={products.length}
                   selectedCount={selectedIds.size}
@@ -756,61 +806,71 @@ export default function App() {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                 />
-              </>
-            )}
+              )}
 
-            {products.length === 0 && !isGenerating ? (
-              <EmptyState />
-            ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {products.map((product, index) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    index={index}
-                    aspectRatio={config.imageAspectRatio}
-                    selected={selectedIds.has(product.id)}
-                    onToggleSelect={() => toggleSelect(product.id)}
-                    onEdit={() => setEditingProduct(product)}
-                    onPost={() => handlePostOne(product.id)}
-                    onDelete={() => handleDeleteOne(product.id)}
-                  />
-                ))}
-              </div>
-            ) : viewMode === 'list' ? (
-              <div className="flex flex-col gap-3">
-                {products.map((product) => (
-                  <ProductListRow
-                    key={product.id}
-                    product={product}
-                    aspectRatio={config.imageAspectRatio}
-                    selected={selectedIds.has(product.id)}
-                    onToggleSelect={() => toggleSelect(product.id)}
-                    onEdit={() => setEditingProduct(product)}
-                    onPost={() => handlePostOne(product.id)}
-                    onDelete={() => handleDeleteOne(product.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ProductTable
-                products={products}
-                aspectRatio={config.imageAspectRatio}
-                selectedIds={selectedIds}
-                allSelected={allSelected}
-                onToggleSelect={toggleSelect}
-                onToggleSelectAll={toggleSelectAll}
-                onEdit={(product) => setEditingProduct(product)}
-                onPost={handlePostOne}
-                onDelete={handleDeleteOne}
-              />
-            )}
-          </section>
+              {products.length === 0 && !isGenerating ? (
+                <EmptyState />
+              ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {products.map((product, index) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      index={index}
+                      aspectRatio={config.imageAspectRatio}
+                      selected={selectedIds.has(product.id)}
+                      onToggleSelect={() => toggleSelect(product.id)}
+                      onEdit={() => setEditingProduct(product)}
+                      onPost={() => handlePostOne(product.id)}
+                      onDelete={() => handleDeleteOne(product.id)}
+                    />
+                  ))}
+                </div>
+              ) : viewMode === 'list' ? (
+                <div className="flex flex-col gap-3">
+                  {products.map((product) => (
+                    <ProductListRow
+                      key={product.id}
+                      product={product}
+                      aspectRatio={config.imageAspectRatio}
+                      selected={selectedIds.has(product.id)}
+                      onToggleSelect={() => toggleSelect(product.id)}
+                      onEdit={() => setEditingProduct(product)}
+                      onPost={() => handlePostOne(product.id)}
+                      onDelete={() => handleDeleteOne(product.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <ProductTable
+                  products={products}
+                  aspectRatio={config.imageAspectRatio}
+                  selectedIds={selectedIds}
+                  allSelected={allSelected}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={toggleSelectAll}
+                  onEdit={(product) => setEditingProduct(product)}
+                  onPost={handlePostOne}
+                  onDelete={handleDeleteOne}
+                />
+              )}
+
+              {products.length > 0 && (
+                <ResultsHeader
+                  total={targetTotal}
+                  createdCount={createdCount}
+                  storeUrl={config.storeUrl}
+                  onPostAll={() => void handlePostAll()}
+                  postAllDisabled={!hasPostable || isGenerating}
+                />
+              )}
+            </section>
+          </div>
         </main>
       )}
 
       {stage === 'generator' && mode === 'articles' && (
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+        <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-6">
           {aiArticleUnavailable && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-400">
               <span>⚠️</span>
@@ -824,30 +884,22 @@ export default function App() {
             </div>
           )}
 
-          <ArticleConfigPanel
-            config={articleConfig}
-            onChange={setArticleConfig}
-            onSubmit={handleGenerateArticles}
-            isGenerating={isGeneratingArticles}
-            progress={articleProgress}
-            blogs={blogs}
-            blogsLoading={blogsLoading}
-            selectedBlogIds={selectedBlogIds}
-            onToggleBlog={toggleBlog}
-            onAddBlog={addBlog}
-          />
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+            <ArticleConfigPanel
+              config={articleConfig}
+              onChange={setArticleConfig}
+              onSubmit={handleGenerateArticles}
+              isGenerating={isGeneratingArticles}
+              progress={articleProgress}
+              blogs={blogs}
+              blogsLoading={blogsLoading}
+              selectedBlogIds={selectedBlogIds}
+              onToggleBlog={toggleBlog}
+              onAddBlog={addBlog}
+            />
 
-          <section className="flex flex-col gap-4">
-            {articles.length > 0 && (
-              <>
-                <ResultsHeader
-                  total={targetArticleTotal}
-                  createdCount={createdArticleCount}
-                  storeUrl={config.storeUrl}
-                  onPostAll={() => void handlePostAllArticles()}
-                  postAllDisabled={!hasPostableArticles || isGeneratingArticles}
-                />
-
+            <section className="flex min-w-0 flex-col gap-4">
+              {articles.length > 0 && (
                 <ProductToolbar
                   totalCount={articles.length}
                   selectedCount={selectedArticleIds.size}
@@ -859,60 +911,70 @@ export default function App() {
                   viewMode={articleViewMode}
                   onViewModeChange={setArticleViewMode}
                 />
-              </>
-            )}
+              )}
 
-            {articles.length === 0 && !isGeneratingArticles ? (
-              <EmptyState
-                icon="📰"
-                title='Điền thông tin bên trên và bấm "Tạo bài viết" để bắt đầu'
-                subtitle="AI sẽ sinh tiêu đề, nội dung, tag và ảnh minh họa cho từng bài viết — chỉ trong vài giây."
-              />
-            ) : articleViewMode === 'grid' ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {articles.map((article, index) => (
-                  <ArticleCard
-                    key={article.id}
-                    article={article}
-                    index={index}
-                    aspectRatio={articleConfig.imageAspectRatio}
-                    selected={selectedArticleIds.has(article.id)}
-                    onToggleSelect={() => toggleSelectArticle(article.id)}
-                    onEdit={() => setEditingArticle(article)}
-                    onPost={() => handlePostOneArticle(article.id)}
-                    onDelete={() => handleDeleteOneArticle(article.id)}
-                  />
-                ))}
-              </div>
-            ) : articleViewMode === 'list' ? (
-              <div className="flex flex-col gap-3">
-                {articles.map((article) => (
-                  <ArticleListRow
-                    key={article.id}
-                    article={article}
-                    aspectRatio={articleConfig.imageAspectRatio}
-                    selected={selectedArticleIds.has(article.id)}
-                    onToggleSelect={() => toggleSelectArticle(article.id)}
-                    onEdit={() => setEditingArticle(article)}
-                    onPost={() => handlePostOneArticle(article.id)}
-                    onDelete={() => handleDeleteOneArticle(article.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ArticleTable
-                articles={articles}
-                aspectRatio={articleConfig.imageAspectRatio}
-                selectedIds={selectedArticleIds}
-                allSelected={allArticlesSelected}
-                onToggleSelect={toggleSelectArticle}
-                onToggleSelectAll={toggleSelectAllArticles}
-                onEdit={(article) => setEditingArticle(article)}
-                onPost={handlePostOneArticle}
-                onDelete={handleDeleteOneArticle}
-              />
-            )}
-          </section>
+              {articles.length === 0 && !isGeneratingArticles ? (
+                <EmptyState
+                  icon="📰"
+                  title='Điền thông tin bên trên và bấm "Tạo bài viết" để bắt đầu'
+                  subtitle="AI sẽ sinh tiêu đề, nội dung, tag và ảnh minh họa cho từng bài viết — chỉ trong vài giây."
+                />
+              ) : articleViewMode === 'grid' ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {articles.map((article, index) => (
+                    <ArticleCard
+                      key={article.id}
+                      article={article}
+                      index={index}
+                      aspectRatio={articleConfig.imageAspectRatio}
+                      selected={selectedArticleIds.has(article.id)}
+                      onToggleSelect={() => toggleSelectArticle(article.id)}
+                      onEdit={() => setEditingArticle(article)}
+                      onPost={() => handlePostOneArticle(article.id)}
+                      onDelete={() => handleDeleteOneArticle(article.id)}
+                    />
+                  ))}
+                </div>
+              ) : articleViewMode === 'list' ? (
+                <div className="flex flex-col gap-3">
+                  {articles.map((article) => (
+                    <ArticleListRow
+                      key={article.id}
+                      article={article}
+                      aspectRatio={articleConfig.imageAspectRatio}
+                      selected={selectedArticleIds.has(article.id)}
+                      onToggleSelect={() => toggleSelectArticle(article.id)}
+                      onEdit={() => setEditingArticle(article)}
+                      onPost={() => handlePostOneArticle(article.id)}
+                      onDelete={() => handleDeleteOneArticle(article.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <ArticleTable
+                  articles={articles}
+                  aspectRatio={articleConfig.imageAspectRatio}
+                  selectedIds={selectedArticleIds}
+                  allSelected={allArticlesSelected}
+                  onToggleSelect={toggleSelectArticle}
+                  onToggleSelectAll={toggleSelectAllArticles}
+                  onEdit={(article) => setEditingArticle(article)}
+                  onPost={handlePostOneArticle}
+                  onDelete={handleDeleteOneArticle}
+                />
+              )}
+
+              {articles.length > 0 && (
+                <ResultsHeader
+                  total={targetArticleTotal}
+                  createdCount={createdArticleCount}
+                  storeUrl={config.storeUrl}
+                  onPostAll={() => void handlePostAllArticles()}
+                  postAllDisabled={!hasPostableArticles || isGeneratingArticles}
+                />
+              )}
+            </section>
+          </div>
         </main>
       )}
 

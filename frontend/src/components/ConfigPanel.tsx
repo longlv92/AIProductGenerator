@@ -1,9 +1,14 @@
 import { useState } from 'react'
-import { matchIndustryFromName } from '../mockGenerate'
+import { getPriceRangeBounds, matchIndustryFromName, PRICE_RANGE_CEILING } from '../mockGenerate'
 import type { SapoCollection } from '../sapoApi'
 import type { GenerationConfig, ImageAspectRatio, Industry } from '../types'
-import { IMAGE_ASPECT_RATIOS, INDUSTRIES, PRICE_SEGMENTS } from '../types'
+import { INDUSTRIES } from '../types'
+import { AspectRatioPicker } from './AspectRatioPicker'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { PriceRangeSlider } from './PriceRangeSlider'
+import { QuantitySegmented } from './QuantitySegmented'
+
+const PRODUCT_QUANTITY_OPTIONS = [10, 20, 50, 100, 200]
 
 interface ConfigPanelProps {
   config: GenerationConfig
@@ -53,11 +58,19 @@ export function ConfigPanel({
         e.preventDefault()
         if (isValid && !isGenerating) onSubmit()
       }}
-      className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+      className="flex flex-col gap-4"
     >
-      <div className="section-card flex flex-col gap-4 lg:col-span-2">
+      <div className="section-card flex flex-col gap-4">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Thông tin tạo sản phẩm</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Thông tin tạo sản phẩm</h2>
+            {hasCollections && (
+              <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Đã đồng bộ từ Sapo
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-sm text-slate-400">
             {hasCollections
               ? 'Chọn danh mục và số lượng sản phẩm cần tạo — AI tự đoán loại sản phẩm phù hợp theo tên danh mục.'
@@ -65,14 +78,14 @@ export function ConfigPanel({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-4">
           {collectionsLoading ? (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">Danh mục sản phẩm</label>
               <p className="input flex items-center text-sm text-slate-400">Đang tải danh mục từ store...</p>
             </div>
           ) : hasCollections ? (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">
                 Danh mục sản phẩm <span className="text-red-500">*</span>
               </label>
@@ -94,7 +107,11 @@ export function ConfigPanel({
                   <select
                     className="input"
                     value={config.industry}
-                    onChange={(e) => onChange({ ...config, industry: e.target.value as Industry })}
+                    onChange={(e) => {
+                      const industry = e.target.value as Industry
+                      const [priceMin, priceMax] = getPriceRangeBounds(industry)
+                      onChange({ ...config, industry, priceMin, priceMax })
+                    }}
                   >
                     {INDUSTRIES.map((ind) => (
                       <option key={ind} value={ind}>
@@ -130,7 +147,9 @@ export function ConfigPanel({
                       setCustomIndustry(true)
                       onChange({ ...config, industry: '' })
                     } else {
-                      onChange({ ...config, industry: e.target.value as Industry })
+                      const industry = e.target.value as Industry
+                      const [priceMin, priceMax] = getPriceRangeBounds(industry)
+                      onChange({ ...config, industry, priceMin, priceMax })
                     }
                   }}
                 >
@@ -149,54 +168,40 @@ export function ConfigPanel({
             <label className="field-label">
               Số lượng sản phẩm <span className="text-red-500">*</span>
             </label>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={50}
-              value={config.quantity}
-              onChange={(e) => onChange({ ...config, quantity: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })}
-            />
-            <p className="text-xs text-slate-400">Tối đa 50 sản phẩm mỗi lần tạo.</p>
+            <QuantitySegmented options={PRODUCT_QUANTITY_OPTIONS} value={config.quantity} onChange={(quantity) => onChange({ ...config, quantity })} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="field-label">Phân khúc giá</label>
-            <select
-              className="input"
-              value={config.priceSegment}
-              onChange={(e) => onChange({ ...config, priceSegment: e.target.value as GenerationConfig['priceSegment'] })}
-            >
-              {PRICE_SEGMENTS.map((seg) => (
-                <option key={seg} value={seg}>
-                  {seg}
-                </option>
-              ))}
-            </select>
+            <label className="field-label">Khoảng giá</label>
+            <PriceRangeSlider
+              bounds={[getPriceRangeBounds(config.industry)[0], PRICE_RANGE_CEILING]}
+              valueMin={config.priceMin}
+              valueMax={config.priceMax}
+              onChange={(priceMin, priceMax) => onChange({ ...config, priceMin, priceMax })}
+            />
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <label className="field-label">Tỉ lệ ảnh sản phẩm</label>
-            <div className="flex flex-wrap gap-2">
-              {IMAGE_ASPECT_RATIOS.map((ratio) => (
-                <button
-                  key={ratio.value}
-                  type="button"
-                  onClick={() => onChange({ ...config, imageAspectRatio: ratio.value as ImageAspectRatio })}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    config.imageAspectRatio === ratio.value
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {ratio.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="field-label">Khi đăng lên Sapo</label>
+            <label className="input flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={config.publishNow}
+                onChange={(e) => onChange({ ...config, publishNow: e.target.checked })}
+                className="h-4 w-4 cursor-pointer accent-blue-600"
+              />
+              Đăng công khai ngay (bỏ chọn = đăng ở trạng thái ẩn/nháp)
+            </label>
           </div>
+
+          <AspectRatioPicker
+            label="Tỉ lệ ảnh sản phẩm"
+            value={config.imageAspectRatio}
+            onChange={(imageAspectRatio: ImageAspectRatio) => onChange({ ...config, imageAspectRatio })}
+          />
 
           {!collectionsLoading && (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label className="field-label">
                 {hasCollections ? 'Thêm danh mục khác (nếu cần)' : 'Tạo danh mục mới (nếu store chưa có sẵn)'}
               </label>
@@ -224,47 +229,30 @@ export function ConfigPanel({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="section-card flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Tùy chọn bổ sung</h2>
-          <p className="mt-0.5 text-sm text-slate-400">Không bắt buộc — giúp AI sinh sản phẩm sát ý bạn hơn.</p>
-        </div>
+          <button
+            type="submit"
+            disabled={!isValid || isGenerating}
+            className="mt-2 inline-flex h-[42px] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
+          >
+            {isGenerating && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+            {isGenerating ? 'Đang tạo...' : 'Tạo sản phẩm'}
+          </button>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="field-label">Yêu cầu bổ sung</label>
-          <textarea
-            className="input min-h-[104px] resize-y"
-            placeholder="Ví dụ: áo thun nam, phong cách tối giản..."
-            value={config.extraPrompt}
-            onChange={(e) => onChange({ ...config, extraPrompt: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={!isValid || isGenerating}
-          className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
-        >
-          {isGenerating && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-          {isGenerating ? 'Đang tạo...' : 'Tạo sản phẩm'}
-        </button>
-
-        {isGenerating && progress && (
-          <div className="flex items-center gap-3">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-all duration-300"
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
+          {isGenerating && progress && (
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+              <span className="whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400">
+                {progress.done}/{progress.total}
+              </span>
             </div>
-            <span className="whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400">
-              {progress.done}/{progress.total}
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </form>
   )

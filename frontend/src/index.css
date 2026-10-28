@@ -1,11 +1,34 @@
 @import "tailwindcss";
 
+/*
+ * Theo đúng bảng màu + font trong Tao-du-lieu-demo-Sapo.html: xanh dương #007AFF,
+ * xanh lá #19D865. Override thẳng các shade Tailwind (blue và emerald) đang được
+ * dùng khắp component thay vì đổi từng class — mọi nơi dùng bg-blue-600, text-emerald-600...
+ * tự động đổi theo, không phải sửa lại từng file.
+ */
+@theme {
+  --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+
+  --color-blue-50: #eaf3ff;
+  --color-blue-400: #4da3ff;
+  --color-blue-500: #1f8cff;
+  --color-blue-600: #007aff;
+  --color-blue-700: #0062cc;
+
+  --color-emerald-50: #e3fbee;
+  --color-emerald-400: #3fe08a;
+  --color-emerald-500: #19d865;
+  --color-emerald-600: #0e8a43;
+  --color-emerald-700: #0a6b33;
+}
+
 :root {
   color-scheme: light dark;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  @apply bg-[#E9ECF1] text-slate-900 dark:bg-slate-950 dark:text-slate-100;
 }
 
 @layer components {
@@ -18,8 +41,47 @@ body {
   }
 
   .section-card {
-    @apply rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900;
+    @apply rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900;
   }
+}
+
+/*
+ * Thanh trượt khoảng giá (2 tay cầm) — ghép từ 2 <input type="range"> chồng lên nhau (xem
+ * PriceRangeSlider.tsx). Bản thân input trong suốt + không bắt sự kiện chuột (pointer-events: none), CHỈ
+ * phần "tay cầm" (thumb) mới bắt được chuột — nhờ vậy 2 input chồng nhau vẫn kéo được độc lập từng cái,
+ * không bị input phía trên che mất input phía dưới. Không làm được việc này thuần bằng class Tailwind vì
+ * Tailwind không có utility cho các pseudo-element ::-webkit-slider-thumb/::-moz-range-thumb.
+ */
+.range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #007aff;
+  box-shadow: 0 1px 3px rgba(15, 23, 41, 0.25);
+  cursor: pointer;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #007aff;
+  box-shadow: 0 1px 3px rgba(15, 23, 41, 0.25);
+  cursor: pointer;
+}
+.range-thumb::-moz-range-track {
+  background: transparent;
+  border: none;
 }
 
 @keyframes card-in {

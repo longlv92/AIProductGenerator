@@ -3,6 +3,7 @@ import 'dotenv/config'
 import express from 'express'
 import { articlesRouter } from './routes/articles.js'
 import { blogsRouter } from './routes/blogs.js'
+import { cleanupRouter } from './routes/cleanup.js'
 import { collectionsRouter } from './routes/collections.js'
 import { connectRouter } from './routes/connect.js'
 import { generateRouter } from './routes/generate.js'
@@ -23,6 +24,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api', collectionsRouter)
+app.use('/api', cleanupRouter)
 app.use('/api', connectRouter)
 app.use('/api', productsRouter)
 app.use('/api', imagesRouter)

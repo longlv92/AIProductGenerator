@@ -28,7 +28,7 @@ async function sapoRequestAuthed(
   storeUrl: string,
   header: { name: string; value: string },
   path: string,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE',
   body?: unknown,
 ): Promise<unknown> {
   const endpoint = `https://${normalizeStoreUrl(storeUrl)}${path}`
@@ -47,7 +47,9 @@ async function sapoRequestAuthed(
     throw new Error(`Sapo API trả lỗi ${response.status} ${response.statusText}: ${responseBody.slice(0, 300)}`)
   }
 
-  return response.json()
+  // DELETE thành công của Sapo có thể trả về body rỗng — tránh crash khi parse JSON rỗng.
+  const text = await response.text()
+  return text ? JSON.parse(text) : {}
 }
 
 function parseBlogsResponse(data: unknown): SapoBlog[] {
@@ -141,4 +143,53 @@ export async function postArticle(storeUrl: string, input: SapoArticleInput, blo
   const { id: articleId } = await createArticle(storeUrl, blog.id, input)
   const articleUrl = `https://${normalizeStoreUrl(storeUrl)}/admin/articles/${articleId}`
   return { articleId, articleUrl, blog }
+}
+
+/**
+ * Tìm toàn bộ bài viết có gắn tag `demo` rồi xóa hẳn khỏi Sapo — cùng nguyên tắc với
+ * deleteProductsByTag() ở sapoClient.ts (Sapo không hỗ trợ lọc theo tag, phải tự phân trang + lọc).
+ * Article không có API liệt kê toàn store (phải biết blog_id), nên phải lặp qua TỪNG blog trước.
+ */
+export async function deleteArticlesByTag(storeUrl: string, tag: string): Promise<{ deleted: number; failed: number }> {
+  const { storeUrl: resolvedUrl, header } = getStoreAuthHeader(storeUrl)
+  const blogs = await fetchBlogsWithHeader(resolvedUrl, header)
+  const PAGE_SIZE = 250
+  let deleted = 0
+  let failed = 0
+
+  for (const blog of blogs) {
+    let page = 1
+    while (true) {
+      const data = (await sapoRequestAuthed(
+        resolvedUrl,
+        header,
+        `/admin/blogs/${blog.id}/articles.json?limit=${PAGE_SIZE}&page=${page}&fields=id,tags`,
+        'GET',
+      )) as { articles?: Array<{ id: number | string; tags?: string }> }
+
+      const articles = data.articles ?? []
+      if (articles.length === 0) break
+
+      const matched = articles.filter((a) =>
+        (a.tags ?? '')
+          .split(',')
+          .map((t) => t.trim().toLowerCase())
+          .includes(tag.toLowerCase()),
+      )
+
+      for (const a of matched) {
+        try {
+          await sapoRequestAuthed(resolvedUrl, header, `/admin/blogs/${blog.id}/articles/${a.id}.json`, 'DELETE')
+          deleted++
+        } catch {
+          failed++
+        }
+      }
+
+      if (articles.length < PAGE_SIZE) break
+      page++
+    }
+  }
+
+  return { deleted, failed }
 }

@@ -31,7 +31,7 @@ git push -u origin main
 3. Render sẽ hỏi nhập giá trị cho các biến đánh dấu `sync: false` — nhập trực tiếp
    trên dashboard (không dán vào chat với tôi):
    - `PEXELS_API_KEY`
-   - `ANTHROPIC_API_KEY`
+   - `OPENAI_API_KEY`
    - `SAPO_OAUTH_CLIENT_ID`
    - `SAPO_OAUTH_CLIENT_SECRET`
 4. Bấm **Apply** — Render tạo 2 service: `sapo-ai-tool-backend` (Node, gói `starter`

@@ -64,42 +64,45 @@ function extractJson(text: string): string {
 }
 
 /**
- * Gọi Claude (Anthropic Messages API) với 1 system + user prompt, trả về JSON
+ * Gọi OpenAI (Chat Completions API) với 1 system + user prompt, trả về JSON
  * đã parse — dùng chung cho cả sinh sản phẩm (generateProducts) lẫn sinh bài
  * viết (generateArticles) để khỏi lặp lại phần gọi API + xử lý lỗi.
+ *
+ * Dùng `response_format: json_object` để OpenAI trả JSON thuần luôn, không
+ * cần tự bóc tách markdown code fence như trước (extractJson() vẫn giữ lại
+ * làm lớp phòng hờ nếu model lỡ bọc thêm fence).
  */
-async function callClaudeForJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+async function callAiForJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
+  const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    throw new Error('Chưa cấu hình ANTHROPIC_API_KEY trong backend/.env')
+    throw new Error('Chưa cấu hình OPENAI_API_KEY trong backend/.env')
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-5',
-      max_tokens: 4096,
-      // Viết nội dung sản phẩm/bài viết không cần suy luận sâu — hạ effort để rẻ + nhanh hơn.
-      output_config: { effort: 'low' },
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
     }),
   })
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    throw new Error(`Claude API trả lỗi ${response.status}: ${body.slice(0, 300)}`)
+    throw new Error(`OpenAI API trả lỗi ${response.status}: ${body.slice(0, 300)}`)
   }
 
-  const data = (await response.json()) as { content?: Array<{ type: string; text?: string }> }
-  const text = data.content?.find((block) => block.type === 'text')?.text
+  const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> }
+  const text = data.choices?.[0]?.message?.content
   if (!text) {
-    throw new Error('Claude không trả về nội dung text.')
+    throw new Error('OpenAI không trả về nội dung text.')
   }
 
   try {
@@ -140,12 +143,12 @@ function sanitizeProduct(raw: unknown): GeneratedProductContent | null {
 }
 
 /**
- * Gọi Claude (Anthropic Messages API) để sinh nội dung sản phẩm thật bằng AI,
- * thay cho bộ template cố định (mockGenerate.ts ở frontend chỉ còn dùng làm
- * phương án dự phòng khi không gọi được AI thật — xem routes/generate.ts).
+ * Gọi OpenAI để sinh nội dung sản phẩm thật bằng AI, thay cho bộ template cố
+ * định (mockGenerate.ts ở frontend chỉ còn dùng làm phương án dự phòng khi
+ * không gọi được AI thật — xem routes/generate.ts).
  */
 export async function generateProducts(params: GenerateParams): Promise<GeneratedProductContent[]> {
-  const parsed = await callClaudeForJson(SYSTEM_PROMPT, buildUserPrompt(params))
+  const parsed = await callAiForJson(SYSTEM_PROMPT, buildUserPrompt(params))
 
   const rawList = (parsed as { products?: unknown[] })?.products
   if (!Array.isArray(rawList)) {
@@ -223,12 +226,12 @@ function sanitizeArticle(raw: unknown): GeneratedArticleContent | null {
 }
 
 /**
- * Gọi Claude để sinh nội dung bài viết thật bằng AI, thay cho bộ template cố
+ * Gọi OpenAI để sinh nội dung bài viết thật bằng AI, thay cho bộ template cố
  * định (mockGenerateArticle.ts ở frontend chỉ còn dùng làm phương án dự
  * phòng khi không gọi được AI thật — xem routes/generateArticles.ts).
  */
 export async function generateArticles(params: GenerateArticleParams): Promise<GeneratedArticleContent[]> {
-  const parsed = await callClaudeForJson(ARTICLE_SYSTEM_PROMPT, buildArticleUserPrompt(params))
+  const parsed = await callAiForJson(ARTICLE_SYSTEM_PROMPT, buildArticleUserPrompt(params))
 
   const rawList = (parsed as { articles?: unknown[] })?.articles
   if (!Array.isArray(rawList)) {

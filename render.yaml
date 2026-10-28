@@ -35,7 +35,7 @@ services:
       # Blueprint (giữ bí mật, không commit vào git).
       - key: PEXELS_API_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: OPENAI_API_KEY
         sync: false
       - key: SAPO_OAUTH_CLIENT_ID
         sync: false
