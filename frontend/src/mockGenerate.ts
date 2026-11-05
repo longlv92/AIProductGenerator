@@ -34,7 +34,7 @@ interface Template {
    * áp dụng chung 1 mẫu cho mọi ngành (VD nói "chất liệu, độ hoàn thiện" hay "đổi trả trong 7 ngày" cho
    * xoài/cua tươi là sai thực tế). Mặc định 'durable' (hàng bền) nếu không khai báo.
    */
-  descriptionKind?: 'durable' | 'food' | 'cosmetics'
+  descriptionKind?: 'durable' | 'food' | 'cosmetics' | 'service' | 'furniture'
 }
 
 const TEMPLATES: Record<Industry, Template> = {
@@ -664,6 +664,172 @@ const TEMPLATES: Record<Industry, Template> = {
     weightRangeGrams: [300, 8000],
     attributePresets: [{ name: 'Màu sắc', values: ['Gỗ tự nhiên', 'Trắng', 'Đen'] }],
   },
+  'Thiết kế - Thi công nội thất': {
+    category: 'Thiết kế - Thi công nội thất',
+    nouns: [
+      'Sofa băng 3 chỗ',
+      'Sofa góc chữ L',
+      'Sofa đơn thư giãn',
+      'Bàn ăn chữ nhật 6 ghế',
+      'Bàn ăn mặt đá',
+      'Bàn ăn tròn',
+      'Ghế ăn nệm êm',
+      'Ghế ăn tựa lưng cong',
+      'Bàn trà phòng khách',
+      'Kệ tivi',
+      'Kệ trang trí',
+      'Giường ngủ khung gỗ',
+      'Tủ quần áo cánh lùa',
+      'Tab đầu giường',
+      'Bàn trang điểm',
+      'Tủ bếp chữ L',
+      'Bàn làm việc',
+      'Tủ giày',
+    ],
+    nounKeywords: [
+      'three seater sofa',
+      'l shaped sectional sofa',
+      'lounge armchair',
+      'wooden dining table',
+      'marble dining table',
+      'round dining table',
+      'upholstered dining chair',
+      'wooden dining chair',
+      'coffee table living room',
+      'tv stand cabinet',
+      'decorative wall shelf',
+      'wooden bed frame',
+      'sliding door wardrobe',
+      'bedside table nightstand',
+      'dressing table vanity',
+      'modern kitchen cabinets',
+      'wooden office desk',
+      'shoe cabinet entryway',
+    ],
+    nounTags: [
+      ['sofa'],
+      ['sofa', 'sofa góc'],
+      ['sofa', 'ghế thư giãn', 'armchair'],
+      ['bàn ăn'],
+      ['bàn ăn'],
+      ['bàn ăn'],
+      ['ghế ăn'],
+      ['ghế ăn'],
+      ['bàn trà', 'bàn sofa'],
+      ['kệ tivi', 'kệ tv', 'tủ tivi'],
+      ['kệ trang trí'],
+      ['giường'],
+      ['tủ quần áo', 'tủ áo'],
+      ['tab đầu giường', 'tủ đầu giường'],
+      ['trang điểm'],
+      ['tủ bếp'],
+      ['làm việc'],
+      ['tủ giày'],
+    ],
+    // Danh mục đặt theo PHÒNG (VD "Phòng khách", "Phòng ngủ") — không trùng tên sản phẩm nào, chỉ thu hẹp được qua nhóm.
+    nounGroupTags: [
+      ['phòng khách'],
+      ['phòng khách'],
+      ['phòng khách'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng khách'],
+      ['phòng khách'],
+      ['phòng khách'],
+      ['phòng ngủ'],
+      ['phòng ngủ'],
+      ['phòng ngủ'],
+      ['phòng ngủ'],
+      ['phòng ăn', 'phòng bếp'],
+      ['phòng làm việc'],
+      ['tiền sảnh', 'lối vào'],
+    ],
+    adjectives: ['khung gỗ sồi tự nhiên', 'phong cách Japandi', 'thiết kế tối giản', 'đặt làm theo kích thước', 'chất liệu chống ẩm', 'hoàn thiện sơn PU cao cấp'],
+    tagPool: ['căn hộ chung cư', 'nhà phố', 'gia đình trẻ', 'nhà mới', 'biệt thự'],
+    basePriceRange: { 'Bình dân': [1500000, 5000000], 'Trung cấp': [5000000, 15000000], 'Cao cấp': [15000000, 50000000] },
+    brandPool: ['Mộc Gia Interior', 'Hiên Home', 'Oak & Linen', 'Lá Interior'],
+    unit: 'Cái',
+    weightRangeGrams: [5000, 80000],
+    attributePresets: [
+      { name: 'Chất liệu', values: ['Gỗ sồi', 'Gỗ óc chó', 'MDF chống ẩm phủ veneer'] },
+      { name: 'Màu sắc', values: ['Gỗ tự nhiên', 'Trắng kem', 'Nâu óc chó'] },
+    ],
+    descriptionKind: 'furniture',
+  },
+  'Studio - Chụp ảnh & Quay phim': {
+    category: 'Studio - Chụp ảnh & Quay phim',
+    nouns: [
+      'Album ảnh cưới',
+      'Album ảnh gia đình',
+      'Album ảnh bé yêu',
+      'Album kỷ yếu',
+      'Photobook in ảnh',
+      'Gói chụp ảnh cưới studio',
+      'Gói chụp ảnh cưới ngoại cảnh',
+      'Gói chụp ảnh gia đình',
+      'Gói chụp ảnh bé',
+      'Gói chụp ảnh sản phẩm',
+      'Gói chụp ảnh kỷ yếu',
+      'Gói chụp ảnh profile cá nhân',
+      'Gói quay phim phóng sự cưới',
+      'Gói quay phim sự kiện',
+      'Gói quay video quảng cáo sản phẩm',
+      'Gói quay video giới thiệu doanh nghiệp',
+      'Thuê studio theo giờ',
+      'Ảnh phóng lớn treo tường',
+    ],
+    nounKeywords: [
+      'wedding couple photoshoot',
+      'family portrait photoshoot',
+      'baby newborn photoshoot',
+      'graduation students group photo',
+      'photo book album',
+      'wedding photo studio',
+      'wedding couple outdoor photoshoot',
+      'family portrait studio',
+      'baby photoshoot studio',
+      'product photography studio',
+      'graduation photoshoot',
+      'professional headshot portrait',
+      'wedding videographer camera',
+      'event videographer camera',
+      'video production commercial',
+      'corporate video production',
+      'photography studio lighting',
+      'framed photo wall',
+    ],
+    nounTags: [
+      ['album', 'cưới'],
+      ['album', 'gia đình'],
+      ['album', 'em bé'],
+      ['album', 'kỷ yếu'],
+      ['album', 'in ảnh'],
+      ['chụp ảnh', 'cưới'],
+      ['chụp ảnh', 'cưới', 'ngoại cảnh'],
+      ['chụp ảnh', 'gia đình'],
+      ['chụp ảnh', 'em bé'],
+      ['chụp ảnh', 'sản phẩm'],
+      ['chụp ảnh', 'kỷ yếu'],
+      ['chụp ảnh', 'chân dung'],
+      ['quay phim', 'video', 'cưới'],
+      ['quay phim', 'video', 'sự kiện'],
+      ['quay phim', 'video', 'quảng cáo'],
+      ['quay phim', 'video', 'doanh nghiệp'],
+      ['thuê studio', 'thuê phòng chụp'],
+      ['in ảnh'],
+    ],
+    adjectives: ['phong cách Hàn Quốc', 'concept theo yêu cầu', 'chỉnh màu điện ảnh', 'ekip chuyên nghiệp', 'trọn gói tiết kiệm', 'giao file nhanh'],
+    tagPool: ['cặp đôi sắp cưới', 'gia đình trẻ', 'doanh nghiệp', 'shop online', 'học sinh sinh viên'],
+    basePriceRange: { 'Bình dân': [500000, 3000000], 'Trung cấp': [3000000, 12000000], 'Cao cấp': [12000000, 50000000] },
+    brandPool: ['Lumière Studio', 'Mây Studio', 'Frame House', 'Kho Ảnh Media'],
+    unit: 'Gói',
+    weightRangeGrams: [200, 3000],
+    attributePresets: [{ name: 'Gói dịch vụ', values: ['Cơ bản', 'Tiêu chuẩn', 'Cao cấp'] }],
+    descriptionKind: 'service',
+  },
   'Sách - Văn phòng phẩm': {
     category: 'Sách - Văn phòng phẩm',
     nouns: [
@@ -861,11 +1027,17 @@ export const PRICE_RANGE_CEILING = 50_000_000
 
 /**
  * Từ khóa để đoán ngành nghề từ TÊN DANH MỤC có sẵn trong store (vì danh mục
- * do người dùng tự đặt, không khớp thẳng với 13 ngành dựng sẵn). Thứ tự khai
+ * do người dùng tự đặt, không khớp thẳng với 15 ngành dựng sẵn). Thứ tự khai
  * báo có ý nghĩa: kiểm tra trước sẽ ưu tiên khi 1 tên khớp nhiều từ khóa
  * (VD: "Thiết bị điện gia dụng" nên rơi vào Thiết bị điện, không phải Đồ gia dụng).
  */
 const INDUSTRY_KEYWORDS: [Industry, string[]][] = [
+  // Đứng trước Thời trang ("áo" trong "tủ quần áo"), Mỹ phẩm ("da" trong "sofa da"), Đồ gia dụng ("bếp" trong "tủ bếp").
+  [
+    'Thiết kế - Thi công nội thất',
+    ['thi công', 'thiết kế nội thất', 'sofa', 'bàn ăn', 'ghế ăn', 'bàn trà', 'kệ tivi', 'giường', 'tủ quần áo', 'tủ bếp', 'tủ giày', 'phòng ăn'],
+  ],
+  ['Studio - Chụp ảnh & Quay phim', ['studio', 'chụp ảnh', 'quay phim', 'quay video', 'nhiếp ảnh', 'ảnh cưới', 'album', 'photobook']],
   [
     'Hóa phẩm - Vệ sinh nhà cửa',
     ['hóa phẩm', 'tẩy rửa', 'vệ sinh nhà', 'nhà cửa', 'nước lau', 'lau sàn', 'lau kính', 'rửa chén', 'rửa bát', 'nước giặt', 'nước xả', 'xả vải', 'giặt xả', 'nhà tắm', 'phòng tắm', 'bồn cầu', 'khử mùi'],
@@ -885,11 +1057,20 @@ const INDUSTRY_KEYWORDS: [Industry, string[]][] = [
     ['thời trang', 'trang sức', 'áo', 'quần', 'váy', 'đầm', 'thun', 'sơ mi', 'jean', 'giày', 'dép', 'sandal', 'sneaker', 'boot', 'túi xách', 'ví', 'kính mắt', 'thắt lưng'],
   ],
   ['Khác', ['mẹ', 'bé', 'sơ sinh', 'ăn dặm', 'trẻ em']],
+  // Chỉ dùng khi store đã chọn ngành Thiết kế - Thi công (xem `preferred` ở matchIndustryFromName) — các tên này đã thuộc
+  // Nội thất - Trang trí ở trên, nhưng store thiết kế thi công đặt danh mục "Phòng khách" thì phải ra sofa, không phải thảm/rèm.
+  ['Thiết kế - Thi công nội thất', ['nội thất', 'phòng khách', 'phòng ngủ', 'phòng làm việc', 'trang trí']],
 ]
 
-/** Đoán ngành nghề gần đúng nhất từ tên danh mục — trả về null nếu không khớp từ khóa nào. */
-export function matchIndustryFromName(name: string): Industry | null {
+/**
+ * Đoán ngành nghề gần đúng nhất từ tên danh mục — trả về null nếu không khớp từ khóa nào. `preferred` (ngành store đang
+ * chọn) được ưu tiên nếu tên danh mục khớp từ khóa của chính ngành đó, dù có ngành khác đứng trước cũng khớp.
+ */
+export function matchIndustryFromName(name: string, preferred?: string): Industry | null {
   const lower = name.toLowerCase()
+  if (preferred && INDUSTRY_KEYWORDS.some(([industry, keywords]) => industry === preferred && keywords.some((kw) => lower.includes(kw)))) {
+    return preferred as Industry
+  }
   for (const [industry, keywords] of INDUSTRY_KEYWORDS) {
     if (keywords.some((kw) => lower.includes(kw))) return industry
   }
@@ -905,6 +1086,11 @@ const GENERIC_WORDS = new Set([
   'nước', 'lau',
   // "Làm sạch" (dòng skincare) — giữ "làm" thì khớp nhầm "Toner AHA Làm Sáng"; vẫn khớp đúng qua tag "làm sạch".
   'làm',
+  // "Gói chụp ảnh..." / "Album ảnh..." — giữ "ảnh"/"gói" thì danh mục "Chụp ảnh" khớp cả album, "Album" khớp cả gói chụp.
+  'ảnh', 'gói',
+  // Danh mục cha "Studio" chỉ là tên ngành — giữ thì chỉ khớp riêng "Gói chụp ảnh cưới studio" / "Thuê studio".
+  'studio',
+  'phòngkhách', 'phòngngủ', 'phòngăn',
 ])
 
 /**
@@ -916,7 +1102,13 @@ const GENERIC_WORDS = new Set([
  */
 // "mặt nạ" ghép thành 1 token (nhưng KHÔNG liệt vào GENERIC_WORDS) — tách riêng thì "mặt" khớp nhầm cả "Sữa rửa mặt",
 // còn "nạ" chỉ 2 ký tự nên bị bỏ qua, khiến danh mục "Mặt nạ" ra lẫn sữa rửa mặt.
-const AMBIGUOUS_COMPOUND_PHRASES = ['nhà bếp', 'gia dụng', 'gia đình', 'nhà tắm', 'phòng tắm', 'mặt nạ']
+// "bàn ăn" / "ghế ăn" / "bàn trà" ghép thành 1 token (không generic) — tách riêng thì "bàn" khớp mọi loại bàn, còn "ăn"/"trà"
+// quá ngắn hoặc chung chung. "phòng khách/ngủ/ăn" ghép + liệt vào GENERIC_WORDS — tách riêng thì "ngủ" khớp nhầm
+// mỗi "Giường ngủ", khiến danh mục "Phòng ngủ" không ra tủ áo, tab đầu giường (xem nounGroupTags).
+const AMBIGUOUS_COMPOUND_PHRASES = [
+  'nhà bếp', 'gia dụng', 'gia đình', 'nhà tắm', 'phòng tắm', 'mặt nạ',
+  'bàn ăn', 'ghế ăn', 'bàn trà', 'bàn làm việc', 'bàn trang điểm', 'phòng khách', 'phòng ngủ', 'phòng ăn',
+]
 
 function joinAmbiguousCompounds(text: string): string {
   return AMBIGUOUS_COMPOUND_PHRASES.reduce((acc, phrase) => acc.replaceAll(phrase, phrase.replace(/\s+/g, '')), text)
@@ -1078,7 +1270,10 @@ function capitalizeFirst(text: string): string {
  * hoàn thiện", không thể "đổi trả sau 7 ngày" như hàng bền). Nhắc thẳng tên sản phẩm (`noun`) thay vì nói
  * chung chung "sản phẩm" để mô tả đọc cụ thể hơn.
  */
-const DESCRIPTION_COPY: Record<NonNullable<Template['descriptionKind']>, { quality: (noun: string) => string; policy: string }> = {
+const DESCRIPTION_COPY: Record<
+  NonNullable<Template['descriptionKind']>,
+  { quality: (noun: string) => string; policy: string; policyHeading?: string }
+> = {
   durable: {
     quality: (noun) => `${noun} được chọn lọc kỹ về chất liệu và độ hoàn thiện, phù hợp dùng hàng ngày lẫn làm quà tặng.`,
     policy: 'Cam kết đóng gói cẩn thận khi giao hàng, hỗ trợ đổi trả trong 7 ngày nếu sản phẩm lỗi từ nhà sản xuất.',
@@ -1087,6 +1282,17 @@ const DESCRIPTION_COPY: Record<NonNullable<Template['descriptionKind']>, { quali
     quality: (noun) => `${noun} được chọn lọc kỹ từ nguồn gốc rõ ràng, đảm bảo độ tươi ngon, phù hợp dùng hàng ngày lẫn làm quà biếu.`,
     policy:
       'Đóng gói kỹ, bảo quản đúng cách trong suốt quá trình giao hàng để giữ trọn độ tươi ngon; hỗ trợ đổi lại ngay nếu phát hiện hàng không đạt chất lượng khi nhận.',
+  },
+  furniture: {
+    quality: (noun) => `${noun} do xưởng sản xuất trực tiếp, kiểm tra kỹ từng mối ghép và bề mặt hoàn thiện trước khi giao, có thể đặt làm theo kích thước căn phòng.`,
+    policy: 'Miễn phí vận chuyển và lắp đặt nội thành, bảo hành khung 5 năm; hỗ trợ đổi trả trong 7 ngày nếu sản phẩm lỗi từ xưởng.',
+    policyHeading: 'Chính sách giao hàng &amp; bảo hành',
+  },
+  service: {
+    quality: (noun) => `${noun} do ekip nhiếp ảnh gia, quay phim và chuyên viên hậu kỳ giàu kinh nghiệm thực hiện, lên concept riêng theo từng khách hàng.`,
+    policy:
+      'Đặt cọc 30% để giữ lịch, thanh toán phần còn lại khi nhận sản phẩm; miễn phí chỉnh sửa lại theo góp ý trong 7 ngày sau khi giao file, hỗ trợ dời lịch 1 lần nếu báo trước 3 ngày.',
+    policyHeading: 'Chính sách đặt lịch &amp; chỉnh sửa',
   },
   cosmetics: {
     quality: (noun) => `${noun} được chọn lọc kỹ về thành phần và nguồn gốc, phù hợp dùng hàng ngày lẫn làm quà tặng.`,
@@ -1132,7 +1338,7 @@ function buildDescriptionHtml(
     featureBullets.length > 0 ? `<h2>Điểm nổi bật</h2><ul>${featureBulletsHtml}</ul>` : '',
     `<h2>Thông tin chi tiết</h2><ul>${attributeBulletsHtml}</ul>`,
     `<h2>Phù hợp với ai?</h2><p>Phù hợp với: ${tags.slice(0, 3).join(', ')}. ${copy.quality(noun)}</p>`,
-    `<h2>Chính sách bảo hành &amp; đổi trả</h2><p>${copy.policy}</p>`,
+    `<h2>${copy.policyHeading ?? 'Chính sách bảo hành &amp; đổi trả'}</h2><p>${copy.policy}</p>`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -1197,7 +1403,7 @@ export function generateMockProduct(
   collectionName?: string,
   options: MockProductOptions = {},
 ): Product {
-  const templateKey = (collectionName && matchIndustryFromName(collectionName)) || industry
+  const templateKey = (collectionName && matchIndustryFromName(collectionName, industry)) || industry
   const template = TEMPLATES[templateKey as Industry] ?? FALLBACK_TEMPLATE
   const seed = index + Math.floor(Math.random() * 1000)
   // Gộp tên danh mục + yêu cầu bổ sung khi lọc loại sản phẩm phù hợp — người dùng hay gõ thẳng loại sản

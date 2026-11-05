@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { SapoBlog } from '../sapoApi'
 import type { ArticleGenerationConfig, ImageAspectRatio } from '../types'
-import { ARTICLE_TONES, ARTICLE_TOPICS, INDUSTRIES } from '../types'
+import { ARTICLE_INDUSTRIES, ARTICLE_TONES, articleTopicsFor } from '../types'
 import { AspectRatioPicker } from './AspectRatioPicker'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { QuantitySegmented } from './QuantitySegmented'
@@ -72,8 +72,17 @@ export function ArticleConfigPanel({
             <label className="field-label">
               Ngành hàng của store <span className="text-red-500">*</span>
             </label>
-            <select className="input" value={config.industry} onChange={(e) => onChange({ ...config, industry: e.target.value })}>
-              {INDUSTRIES.map((i) => (
+            <select
+              className="input"
+              value={config.industry}
+              onChange={(e) => {
+                const industry = e.target.value
+                // Đổi sang ngành không có chủ đề đang chọn (VD "Dự án đã thi công") → về chủ đề đầu tiên của ngành mới.
+                const topics = articleTopicsFor(industry)
+                onChange({ ...config, industry, topic: topics.includes(config.topic) ? config.topic : topics[0] })
+              }}
+            >
+              {ARTICLE_INDUSTRIES.map((i) => (
                 <option key={i} value={i}>
                   {i}
                 </option>
@@ -87,7 +96,7 @@ export function ArticleConfigPanel({
               Chủ đề <span className="text-red-500">*</span>
             </label>
             <select className="input" value={config.topic} onChange={(e) => onChange({ ...config, topic: e.target.value })}>
-              {ARTICLE_TOPICS.map((t) => (
+              {articleTopicsFor(config.industry).map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>

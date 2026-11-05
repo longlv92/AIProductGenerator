@@ -15,7 +15,7 @@ import { ProductTable } from './components/ProductTable'
 import { ProductToolbar } from './components/ProductToolbar'
 import { ResultsHeader } from './components/ResultsHeader'
 import { generateMockProduct, getPriceRangeBounds, slugifySku } from './mockGenerate'
-import { generateMockArticle } from './mockGenerateArticle'
+import { buildGalleryContentHtml, generateMockArticle, isGalleryBlog } from './mockGenerateArticle'
 import {
   BACKEND_URL,
   connectStore,
@@ -87,7 +87,8 @@ function buildArticleFromAi(content: AiGeneratedArticleContent, index: number, b
     author: content.author,
     imageKeyword: content.imageKeyword,
     excerpt: content.excerpt,
-    content: content.content,
+    content: isGalleryBlog(blogName) ? '' : content.content,
+    appendGallery: isGalleryBlog(blogName),
     tags: content.tags,
     blog: blogName ?? '',
     seoTitle: content.seoTitle,
@@ -502,6 +503,18 @@ export default function App() {
       return chosenBlogs.length > 0 ? chosenBlogs[globalIndex % chosenBlogs.length].name : undefined
     }
 
+    // Blog Album / bài dự án: nối bộ ảnh vào cuối nội dung ngay khi tạo nháp (không đợi lúc đăng) để mở bài ra đã thấy sẵn ảnh.
+    function fillGalleryContent(article: Article) {
+      if (!article.appendGallery || article.content.includes('<img')) return
+      fetchProductImageUrls(article.imageKeyword, article.id, 10, articleConfig.imageAspectRatio).then((urls) => {
+        if (urls.length === 0) return
+        const gallery = buildGalleryContentHtml(urls, article.title)
+        setArticles((prev) =>
+          prev.map((a) => (a.id === article.id && !a.content.includes('<img') ? { ...a, content: [a.content, gallery].filter(Boolean).join('\n') } : a)),
+        )
+      })
+    }
+
     setIsGeneratingArticles(true)
     setAiArticleError(null)
     setArticleProgress({ done: startCount, total: target })
@@ -527,6 +540,7 @@ export default function App() {
           return storeOwnerName ? { ...article, author: storeOwnerName } : article
         })
         setArticles((prev) => [...prev, ...newArticles])
+        newArticles.forEach(fillGalleryContent)
       } else {
         // AI thật không dùng được → rơi về dữ liệu mẫu cục bộ (cùng nguyên tắc với handleGenerate() ở sản phẩm).
         setAiArticleUnavailable(true)
@@ -543,6 +557,7 @@ export default function App() {
             blogForIndex(globalIndex),
           )
           setArticles((prev) => [...prev, storeOwnerName ? { ...article, author: storeOwnerName } : article])
+          fillGalleryContent(article)
         }
       }
 
@@ -562,13 +577,26 @@ export default function App() {
 
     // Bài viết Sapo chỉ nhận 1 ảnh đại diện (khác sản phẩm nhận nhiều ảnh) — chỉ lấy 1 ảnh thật.
     const imageUrls = await fetchProductImageUrls(article.imageKeyword, article.id, 1, articleConfig.imageAspectRatio)
+    // Lúc tạo nháp chưa tìm được ảnh (lỗi mạng, hết hạn mức) → thử nối bộ ảnh lại lần nữa trước khi đăng.
+    const galleryContent =
+      article.appendGallery && !article.content.includes('<img')
+        ? [
+            article.content,
+            buildGalleryContentHtml(
+              await fetchProductImageUrls(article.imageKeyword, article.id, 10, articleConfig.imageAspectRatio),
+              article.title,
+            ),
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : null
 
     const result = await postArticleToSapo(
       config.storeUrl,
       {
         title: article.title,
         author: article.author,
-        content: article.content,
+        content: galleryContent ?? article.content,
         excerpt: article.excerpt,
         tags: article.tags,
         imageUrls,

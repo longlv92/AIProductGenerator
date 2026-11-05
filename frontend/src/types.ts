@@ -5,6 +5,8 @@ export type Industry =
   | 'Đồ gia dụng - Sinh hoạt'
   | 'Hóa phẩm - Vệ sinh nhà cửa'
   | 'Nội thất - Trang trí'
+  | 'Thiết kế - Thi công nội thất'
+  | 'Studio - Chụp ảnh & Quay phim'
   | 'Sách - Văn phòng phẩm'
   | 'Thủ công - Mỹ nghệ - Quà tặng'
   | 'Công nghệ - Kỹ thuật số'
@@ -20,6 +22,8 @@ export const INDUSTRIES: Industry[] = [
   'Đồ gia dụng - Sinh hoạt',
   'Hóa phẩm - Vệ sinh nhà cửa',
   'Nội thất - Trang trí',
+  'Thiết kế - Thi công nội thất',
+  'Studio - Chụp ảnh & Quay phim',
   'Sách - Văn phòng phẩm',
   'Thủ công - Mỹ nghệ - Quà tặng',
   'Công nghệ - Kỹ thuật số',
@@ -27,6 +31,18 @@ export const INDUSTRIES: Industry[] = [
   'Thiết bị điện',
   'Thể thao - Dịch vụ',
   'Khác',
+]
+
+/**
+ * Ngành CHỈ dùng cho tin tức — chưa có bộ sản phẩm mẫu riêng (xem mockGenerate.ts), nên không đưa vào INDUSTRIES
+ * để khỏi hiện ở ô chọn ngành của phần sản phẩm.
+ */
+export type ArticleIndustry = Industry | 'Phụ tùng - Phụ kiện xe tải'
+
+export const ARTICLE_INDUSTRIES: ArticleIndustry[] = [
+  ...INDUSTRIES.slice(0, INDUSTRIES.indexOf('Ô tô - Xe máy') + 1),
+  'Phụ tùng - Phụ kiện xe tải',
+  ...INDUSTRIES.slice(INDUSTRIES.indexOf('Ô tô - Xe máy') + 1),
 ]
 
 export type PriceSegment = 'Bình dân' | 'Trung cấp' | 'Cao cấp'
@@ -122,6 +138,17 @@ export const ARTICLE_TOPICS: ArticleTopic[] = [
   'Sự kiện cửa hàng',
 ]
 
+/**
+ * Chủ đề riêng của ngành Thiết kế - Thi công nội thất — bài "câu chuyện dự án": 1 đoạn kể ngắn + phần còn lại toàn ảnh
+ * công trình (xem generateProjectStoryArticle ở mockGenerateArticle.ts). Không đưa vào ARTICLE_TOPICS vì ngành khác không dùng.
+ */
+export const PROJECT_TOPIC = 'Dự án đã thi công'
+
+/** Danh sách chủ đề hiển thị theo ngành — thêm chủ đề "Dự án đã thi công" cho riêng ngành Thiết kế - Thi công nội thất. */
+export function articleTopicsFor(industry: string): string[] {
+  return industry === 'Thiết kế - Thi công nội thất' ? [PROJECT_TOPIC, ...ARTICLE_TOPICS] : ARTICLE_TOPICS
+}
+
 export type ArticleTone = 'Chuyên nghiệp' | 'Thân thiện' | 'Hài hước'
 
 export const ARTICLE_TONES: ArticleTone[] = ['Chuyên nghiệp', 'Thân thiện', 'Hài hước']
@@ -143,6 +170,8 @@ export interface Article {
   status: ArticleStatus
   errorReason?: string
   sapoArticleUrl?: string
+  /** Nối thêm bộ ảnh vào cuối nội dung (blog Album, bài dự án đã thi công) — App.tsx tự tìm ảnh khi tạo nháp/lúc đăng. */
+  appendGallery?: boolean
 }
 
 export interface ArticleGenerationConfig {

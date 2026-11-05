@@ -28,6 +28,8 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   'Đồ gia dụng - Sinh hoạt': '🏠',
   'Hóa phẩm - Vệ sinh nhà cửa': '🧴',
   'Nội thất - Trang trí': '🛋️',
+  'Thiết kế - Thi công nội thất': '📐',
+  'Studio - Chụp ảnh & Quay phim': '📷',
   'Sách - Văn phòng phẩm': '📚',
   'Thủ công - Mỹ nghệ - Quà tặng': '🎁',
   'Công nghệ - Kỹ thuật số': '🔌',
@@ -42,6 +44,7 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   'Đánh giá sản phẩm': '⭐',
   'Mẹo hay & Kinh nghiệm': '💡',
   'Sự kiện cửa hàng': '🎪',
+  'Dự án đã thi công': '🏗️',
 }
 
 export function gradientFor(seed: string): string {
