@@ -49,6 +49,7 @@ export function ArticleCard({ article, index, aspectRatio, selected, onToggleSel
         name={article.title}
         imageKeyword={article.imageKeyword}
         aspectRatio={aspectRatio}
+        allowHeavyCrop={false}
         className="w-full"
       />
 

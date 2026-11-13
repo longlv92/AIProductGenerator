@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { SapoBlog } from '../sapoApi'
+import type { ArticleTemplateList, SapoBlog } from '../sapoApi'
 import type { ArticleGenerationConfig, ImageAspectRatio } from '../types'
 import { ARTICLE_INDUSTRIES, ARTICLE_TONES, articleTopicsFor } from '../types'
 import { AspectRatioPicker } from './AspectRatioPicker'
+import { TemplateLayoutField } from './TemplateLayoutField'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { QuantitySegmented } from './QuantitySegmented'
 
@@ -14,6 +15,8 @@ interface ArticleConfigPanelProps {
   onSubmit: () => void
   isGenerating: boolean
   progress: { done: number; total: number } | null
+  /** Khung giao diện bài viết store đang dùng — gợi ý cho ô chọn khung. */
+  templates: ArticleTemplateList
   blogs: SapoBlog[]
   blogsLoading: boolean
   selectedBlogIds: string[]
@@ -27,6 +30,7 @@ export function ArticleConfigPanel({
   onSubmit,
   isGenerating,
   progress,
+  templates,
   blogs,
   blogsLoading,
   selectedBlogIds,
@@ -124,6 +128,17 @@ export function ArticleConfigPanel({
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <label className="field-label">Tag bài viết</label>
+            <input
+              className="input"
+              placeholder="VD: khuyến mãi, xu hướng 2026"
+              value={config.tags}
+              onChange={(e) => onChange({ ...config, tags: e.target.value })}
+            />
+            <p className="text-xs text-slate-400">Cách nhau bởi dấu phẩy — gắn cho mọi bài viết tạo ra. Để trống = không gắn tag.</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label className="field-label">Khi đăng lên Sapo</label>
             <label className="input flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <input
@@ -135,6 +150,8 @@ export function ArticleConfigPanel({
               Đăng công khai ngay (bỏ chọn = lưu nháp)
             </label>
           </div>
+
+          <TemplateLayoutField value={config.templateLayout} onChange={(templateLayout) => onChange({ ...config, templateLayout })} templates={templates.templates} source={templates.source} />
 
           <AspectRatioPicker
             label="Tỉ lệ ảnh bài viết"

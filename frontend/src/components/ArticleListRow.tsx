@@ -31,6 +31,7 @@ export function ArticleListRow({ article, aspectRatio, selected, onToggleSelect,
           name={article.title}
           imageKeyword={article.imageKeyword}
           aspectRatio={aspectRatio}
+          allowHeavyCrop={false}
           className="w-20 shrink-0"
           rounded="rounded-lg"
         />

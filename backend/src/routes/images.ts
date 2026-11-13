@@ -82,22 +82,85 @@ function filterRelevantPhotos<T extends { matchText: string }>(photos: T[], quer
 }
 
 /**
- * Ưu tiên giữ ảnh có tỉ lệ khung hình GỐC gần với tỉ lệ người dùng đã chọn (VD chọn hiển thị vuông 1:1 thì
- * ưu tiên ảnh gốc cũng gần vuông) — vì bước crop sau đó (xem cropImageUrl() ở sapoApi.ts) luôn ép cứng về
- * đúng kích thước đích, ảnh gốc càng lệch tỉ lệ thì càng phải cắt bỏ nhiều, dễ cắt mất chủ thể/lệch trọng
- * tâm (VD ảnh ngang cắt về khung dọc thường chỉ còn phần giữa, mất góc sản phẩm). Loại bỏ luôn ảnh lệch quá
- * xa (>50%) nếu còn đủ ảnh (>=3) sau khi lọc — không thì giữ nguyên để tránh lọc sạch còn quá ít lựa chọn.
+ * Truy vấn nhiều từ khóa ("|"): mỗi từ khóa phải khớp cả DANH TỪ CHÍNH (từ cuối, VD "speaker" trong "mini bluetooth
+ * speaker") — tránh ảnh chỉ khớp từ phụ như "mini" (ra xe Mini Cooper) hay "bookshelf" (ra kệ sách). Bỏ hết thì trả [].
  */
-function preferMatchingAspectRatio<T extends { width: number; height: number }>(photos: T[], aspectRatio: string): T[] {
+function requireHeadNoun<T extends { matchText: string }>(photos: T[], query: string): T[] {
+  const words = query.toLowerCase().split(/\s+/)
+  const head = words[words.length - 1].replace(/s$/, '')
+  return photos.filter((p) => p.matchText.includes(head) && !OFF_TOPIC_WORDS.test(p.matchText.replace(/[-_/,]+/g, ' ')))
+}
+
+/**
+ * Ảnh khớp danh từ chính nhưng sai ngữ cảnh — đồ chơi, xe cổ, xe buýt trường học, xe bán tải, bóng đá… (VD "coach bus" ra
+ * "school bus", "antique car bus"; "coach" ra huấn luyện viên bóng đá). Chỉ áp dụng cho truy vấn nhiều từ khóa.
+ */
+const OFF_TOPIC_WORDS =
+  /\b(toy|toys|miniature|antique|vintage|rustic|school|pickup|soccer|football|lego|model car|cartoon|illustration|fire truck|ice cream|garbage|sweeper|plowing|plow|double decker|tire|tires|seats|catering|wine|monster truck|makeup|sponge|sponges|candle|candles)\b/
+
+/** Độ lệch tỉ lệ (|w/h − đích| / đích) coi là "gần đúng tỉ lệ" — crop đi tối đa ~12% ảnh, gần như không mất chủ thể. */
+const CLOSE_RATIO_DEVIATION = 0.12
+/** Cần ít nhất chừng này ảnh gần đúng tỉ lệ mới chỉ dùng riêng nhóm đó (bài viết Album lấy tới 10 ảnh/bài). */
+const MIN_CLOSE_PHOTOS = 8
+
+/** Ảnh sản phẩm: số ảnh tối thiểu giữ lại khi lọc theo tỉ lệ (bù bằng ảnh lệch tỉ lệ ≤ 50%, frontend cắt lại cho đúng). */
+const PRODUCT_MIN_PHOTOS = 24
+
+function ratioDeviation(p: { width: number; height: number }, target: number): number {
+  return Math.abs(p.width / p.height - target) / target
+}
+
+/**
+ * Ưu tiên ảnh có tỉ lệ khung hình GỐC gần với tỉ lệ người dùng đã chọn (VD chọn 16:9 thì lấy ảnh gốc cũng
+ * ~16:9) — để ảnh tải lên không bị cắt mất chủ thể. Ảnh được xếp theo độ lệch tăng dần:
+ * - Đủ ảnh gần đúng tỉ lệ (độ lệch ≤ 12%, >= MIN_CLOSE_PHOTOS) → chỉ trả về nhóm này.
+ * - Không đủ → bù thêm các ảnh lệch ít nhất kế tiếp (tối đa lệch 50%) cho đủ MIN_CLOSE_PHOTOS; frontend
+ *   (cropImageUrl ở sapoApi.ts) sẽ không cắt cứng các ảnh lệch nhiều này mà giữ nguyên khung gốc.
+ * Lọc còn < 3 ảnh → giữ nguyên danh sách gốc, tránh lọc sạch.
+ */
+function preferMatchingAspectRatio<T extends { width: number; height: number }>(
+  photos: T[],
+  aspectRatio: string,
+  minPhotos = MIN_CLOSE_PHOTOS,
+): T[] {
   const target = TARGET_RATIO[aspectRatio]
   if (!target) return photos
 
-  const scored = photos
-    .map((p) => ({ photo: p, deviation: Math.abs(p.width / p.height - target) / target }))
+  const sorted = photos
+    .map((photo) => ({ photo, deviation: ratioDeviation(photo, target) }))
     .sort((a, b) => a.deviation - b.deviation)
 
-  const closeEnough = scored.filter((s) => s.deviation <= 0.5).map((s) => s.photo)
-  return closeEnough.length >= 3 ? closeEnough : photos
+  const close = sorted.filter((s) => s.deviation <= CLOSE_RATIO_DEVIATION)
+  const chosen =
+    close.length >= minPhotos ? close : sorted.filter((s) => s.deviation <= 0.5).slice(0, Math.max(minPhotos, close.length))
+  return chosen.length >= 3 ? chosen.map((s) => s.photo) : photos
+}
+
+/**
+ * Từ chỉ người trong slug Pexels / tags Pixabay — ảnh SẢN PHẨM chỉ nên có sản phẩm (VD tìm "karaoke microphone" hay ra
+ * ảnh người đang hát, "over ear headphones" ra ảnh người đeo tai nghe).
+ */
+const PEOPLE_WORDS =
+  /\b(man|men|woman|women|person|people|persons|girl|girls|boy|boys|guy|guys|lady|ladies|singer|singing|sings|child|children|kid|kids|baby|hand|hands|holding|wearing|performer|performing|musician|portrait|couple|friends|crowd|model|businessman|speaking|listening|female|male|teen|teenager|audience|dancing|dancer|dancers)\b/
+
+function hasPeople(matchText: string): boolean {
+  return PEOPLE_WORDS.test(matchText.replace(/[-_/]+/g, ' '))
+}
+
+/** Loại ảnh có người; còn quá ít (< 3) thì giữ cả nhưng xếp ảnh không có người lên trước. */
+function preferNoPeople<T extends { matchText: string }>(photos: T[]): T[] {
+  const clean = photos.filter((p) => !hasPeople(p.matchText))
+  if (clean.length >= 3) return clean
+  return [...clean, ...photos.filter((p) => hasPeople(p.matchText))]
+}
+
+/** Hướng ảnh tương ứng tỉ lệ đã chọn — dùng cho lượt tìm BỔ SUNG (không thay thế lượt tìm chính). */
+function orientationFor(aspectRatio: string): { pexels: string; pixabay: string } | null {
+  const target = TARGET_RATIO[aspectRatio]
+  if (!target) return null
+  if (target > 1) return { pexels: 'landscape', pixabay: 'horizontal' }
+  if (target < 1) return { pexels: 'portrait', pixabay: 'vertical' }
+  return { pexels: 'square', pixabay: 'all' }
 }
 
 /**
@@ -105,7 +168,7 @@ function preferMatchingAspectRatio<T extends { width: number; height: number }>(
  * https://www.pexels.com/api/. Trả về [] nếu lỗi/không cấu hình key (không throw) — để Pixabay vẫn chạy
  * độc lập, không phụ thuộc lẫn nhau.
  */
-async function searchPexels(query: string): Promise<NormalizedPhoto[]> {
+async function searchPexels(query: string, orientation?: string): Promise<NormalizedPhoto[]> {
   const apiKey = process.env.PEXELS_API_KEY
   if (!apiKey) return []
 
@@ -114,6 +177,7 @@ async function searchPexels(query: string): Promise<NormalizedPhoto[]> {
   // trang bán hàng thật hiển thị ảnh sản phẩm. CHỈ áp dụng cho câu gửi Pexels — lọc độ liên quan
   // (filterRelevantPhotos) vẫn dựa trên `query` GỐC, không tính "white"/"background" là từ khoá cụ thể.
   const searchParams = new URLSearchParams({ query: `${query} white background`, per_page: '40' })
+  if (orientation) searchParams.set('orientation', orientation)
   const response = await fetch(`https://api.pexels.com/v1/search?${searchParams}`, {
     headers: { Authorization: apiKey },
   })
@@ -137,7 +201,7 @@ async function searchPexels(query: string): Promise<NormalizedPhoto[]> {
  * chỉ có ảnh nội thất phòng khách chứa TV/tủ lạnh nhỏ, thiếu hẳn ảnh chụp riêng sản phẩm). Không bắt buộc —
  * nếu chưa cấu hình PIXABAY_API_KEY thì bỏ qua, chỉ dùng Pexels (không phá vỡ tool nếu chưa có key).
  */
-async function searchPixabay(query: string): Promise<NormalizedPhoto[]> {
+async function searchPixabay(query: string, orientation?: string): Promise<NormalizedPhoto[]> {
   const apiKey = process.env.PIXABAY_API_KEY
   if (!apiKey) return []
 
@@ -148,6 +212,7 @@ async function searchPixabay(query: string): Promise<NormalizedPhoto[]> {
     per_page: '40',
     safesearch: 'true',
   })
+  if (orientation) searchParams.set('orientation', orientation)
   const response = await fetch(`https://pixabay.com/api/?${searchParams}`)
   if (!response.ok) return []
 
@@ -184,24 +249,57 @@ imagesRouter.get('/image-search', async (req, res) => {
     return
   }
 
-  // Tỉ lệ khung hình người dùng đã chọn hiển thị (1:1, 4:3, 3:4, 16:9) — CHỈ dùng để ưu tiên ảnh có tỉ lệ
-  // gốc gần đúng (preferMatchingAspectRatio), KHÔNG dùng để thiên hướng orientation khi tìm kiếm trên Pexels
-  // (đã từng thử, làm tập kết quả liên quan bị thu hẹp quá mức và trả về nhiều ảnh sai chủ đề — xem lịch sử).
+  // Tỉ lệ khung hình người dùng đã chọn (1:1, 4:3, 3:4, 16:9) — dùng để ưu tiên ảnh có tỉ lệ gốc gần đúng
+  // (preferMatchingAspectRatio) và tìm bổ sung 1 lượt theo orientation. Không dùng orientation THAY cho lượt tìm
+  // chính (đã từng thử, làm tập kết quả liên quan bị thu hẹp quá mức và trả về nhiều ảnh sai chủ đề).
   const aspectRatio = String(req.query.aspectRatio ?? '')
+  // productOnly=1: ảnh sản phẩm — bỏ ảnh có người (xem preferNoPeople). Ảnh bài viết không truyền, giữ ảnh có người.
+  const productOnly = req.query.productOnly === '1'
 
   try {
     // Gọi song song 2 nguồn — nguồn nào lỗi/chưa cấu hình key thì trả [] (xem searchPexels/searchPixabay),
     // không làm hỏng nguồn còn lại.
-    const [pexelsPhotos, pixabayPhotos] = await Promise.all([searchPexels(query), searchPixabay(query)])
-    const allPhotos = [...pexelsPhotos, ...pixabayPhotos]
+    // Có chọn tỉ lệ → tìm BỔ SUNG thêm 1 lượt theo hướng ảnh tương ứng (VD 16:9 → ảnh ngang) để có thêm nhiều ảnh
+    // gốc gần đúng tỉ lệ. Chỉ gộp thêm, không thay lượt tìm chính — lọc độ liên quan bên dưới vẫn áp dụng cho tất cả.
+    //
+    // `query` có thể gồm nhiều từ khóa thay thế cách nhau bởi "|" (VD "bluetooth speaker|portable speaker|wireless speaker")
+    // — loại hàng ít ảnh stock (loa...) gộp nhiều lượt tìm để có nhiều ảnh khác nhau hơn. Từ khóa đầu tìm đủ cả lượt
+    // theo hướng ảnh; các từ khóa phụ chỉ tìm lượt chính (đỡ tốn lượt gọi API). Mỗi từ khóa lọc độ liên quan riêng.
+    // Từ có dấu "-" phía trước (VD "kitchen sink|stainless sink -bathroom") = loại ảnh có từ đó — tách ra khỏi câu tìm.
+    const excludeWords = [...query.matchAll(/(?:^|\s)-([\p{L}\d]+)/gu)].map((m) => m[1].toLowerCase())
+    const cleanQuery = query.replace(/(?:^|\s)-[\p{L}\d]+/gu, ' ')
+    const alternatives = [...new Set(cleanQuery.split('|').map((q) => q.trim()).filter(Boolean))].slice(0, 4)
+    const orientation = orientationFor(aspectRatio)
+    const perAlternative = await Promise.all(
+      alternatives.map(async (alt, i) => {
+        const results = await Promise.all([
+          searchPexels(alt),
+          searchPixabay(alt),
+          i === 0 && orientation ? searchPexels(alt, orientation.pexels) : Promise.resolve([]),
+          i === 0 && orientation && orientation.pixabay !== 'all' ? searchPixabay(alt, orientation.pixabay) : Promise.resolve([]),
+        ])
+        const relevant = filterRelevantPhotos(results.flat(), alt)
+        return alternatives.length > 1 ? requireHeadNoun(relevant, alt) : relevant
+      }),
+    )
+    const seen = new Set<string>()
+    // Khử trùng theo cả ảnh gốc lẫn trang nguồn — Pixabay hay trả cùng 1 ảnh với link largeImageURL khác nhau giữa các lượt tìm.
+    const allPhotos = perAlternative.flat().filter((p) => {
+      if (seen.has(p.raw) || seen.has(p.sourceUrl)) return false
+      if (excludeWords.some((w) => p.matchText.includes(w))) return false
+      seen.add(p.raw)
+      seen.add(p.sourceUrl)
+      return true
+    })
 
     if (allPhotos.length === 0) {
       res.status(404).json({ error: `Không tìm thấy ảnh nào khớp "${query}"` })
       return
     }
 
-    const relevant = filterRelevantPhotos(allPhotos, query)
-    const final = aspectRatio ? preferMatchingAspectRatio(relevant, aspectRatio) : relevant
+    const relevant = productOnly ? preferNoPeople(allPhotos) : allPhotos
+    // Ảnh sản phẩm luôn được cắt đúng tỉ lệ ở frontend → giữ nhiều ảnh hơn (đỡ trùng ảnh giữa các sản phẩm cùng loại).
+    const final = aspectRatio ? preferMatchingAspectRatio(relevant, aspectRatio, productOnly ? PRODUCT_MIN_PHOTOS : MIN_CLOSE_PHOTOS) : relevant
     res.json({ photos: final.map(({ matchText: _matchText, ...photo }) => photo) })
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : 'Lỗi không xác định khi tìm ảnh' })

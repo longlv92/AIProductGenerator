@@ -16,6 +16,8 @@ export interface SapoArticleInput {
   imageUrls?: string[]
   /** true = đăng công khai ngay (published_on = hiện tại); false = lưu nháp trên Sapo. */
   publishNow: boolean
+  /** Khung giao diện bài viết của theme (VD "article.project") — để trống = khung mặc định. */
+  templateLayout?: string
 }
 
 export interface PostArticleResult {
@@ -127,6 +129,7 @@ export async function createArticle(
       summary: input.excerpt,
       tags: input.tags.join(', '),
       ...(input.publishNow ? { published_on: new Date().toISOString() } : {}),
+      ...(input.templateLayout?.trim() ? { template_layout: input.templateLayout.trim() } : {}),
       ...(input.imageUrls && input.imageUrls.length > 0 ? { image: { src: input.imageUrls[0] } } : {}),
     },
   })) as { article?: { id: number | string } }
@@ -135,6 +138,60 @@ export async function createArticle(
     throw new Error('Sapo không trả về id sau khi tạo bài viết.')
   }
   return { id: data.article.id }
+}
+
+/**
+ * Đọc khung giao diện bài viết trực tiếp từ theme đang dùng: các file `templates/article*.bwt` (VD
+ * "templates/article.project.bwt" → "article.project"). Cần quyền read_themes — store kết nối trước khi app xin
+ * quyền này sẽ bị 403, khi đó trả null để dùng cách dự phòng.
+ */
+async function fetchThemeArticleTemplates(storeUrl: string, header: StoreAuthHeader['header']): Promise<string[] | null> {
+  try {
+    const themes = (await sapoRequestAuthed(storeUrl, header, '/admin/themes.json', 'GET')) as {
+      themes?: Array<{ id: number | string; role?: string }>
+    }
+    const main = themes.themes?.find((t) => t.role === 'main') ?? themes.themes?.[0]
+    if (!main) return null
+    const assets = (await sapoRequestAuthed(storeUrl, header, `/admin/themes/${main.id}/assets.json`, 'GET')) as {
+      assets?: Array<{ key?: string }>
+    }
+    const templates = (assets.assets ?? [])
+      .map((a) => /^templates\/(article(?:\.[^/]+?)?)\.(?:bwt|liquid)$/.exec(a.key ?? '')?.[1])
+      .filter((t): t is string => Boolean(t))
+    return templates.length > 0 ? templates : null
+  } catch {
+    return null
+  }
+}
+
+/** Dự phòng khi không đọc được theme: gom template_layout từ các bài viết có sẵn trong từng blog. */
+async function fetchUsedArticleTemplates(storeUrl: string, header: StoreAuthHeader['header']): Promise<string[]> {
+  const blogs = await fetchBlogsWithHeader(storeUrl, header)
+  const templates = new Set<string>()
+  await Promise.all(
+    blogs.map(async (blog) => {
+      const data = (await sapoRequestAuthed(
+        storeUrl,
+        header,
+        `/admin/blogs/${blog.id}/articles.json?limit=250&fields=template_layout`,
+        'GET',
+      ).catch(() => ({}))) as { articles?: Array<{ template_layout?: string | null }> }
+      for (const a of data.articles ?? []) if (a.template_layout?.trim()) templates.add(a.template_layout.trim())
+    }),
+  )
+  return [...templates]
+}
+
+/**
+ * Danh sách khung giao diện bài viết (template_layout, VD "article", "article.project") của store — ưu tiên đọc
+ * thẳng từ theme (đủ mọi khung, kể cả khung chưa bài nào dùng); không có quyền read_themes thì gom từ các bài
+ * viết có sẵn. `source` cho giao diện biết danh sách đã đầy đủ hay chỉ là gần đúng.
+ */
+export async function fetchArticleTemplates(storeUrl: string): Promise<{ templates: string[]; source: 'theme' | 'articles' }> {
+  const { storeUrl: resolvedUrl, header } = getStoreAuthHeader(storeUrl)
+  const fromTheme = await fetchThemeArticleTemplates(resolvedUrl, header)
+  if (fromTheme) return { templates: [...new Set(fromTheme)].sort(), source: 'theme' }
+  return { templates: (await fetchUsedArticleTemplates(resolvedUrl, header)).sort(), source: 'articles' }
 }
 
 /** Tạo bài viết + find-or-create blog theo tên — gộp cả luồng cho route /api/articles. */

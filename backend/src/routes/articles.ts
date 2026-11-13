@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { postArticle, type SapoArticleInput } from '../sapoArticleClient.js'
+import { recordCreatedArticle } from '../createdItems.js'
 import { requireStoreSession } from '../session.js'
 
 export const articlesRouter = Router()
@@ -18,6 +19,7 @@ articlesRouter.post('/articles', requireStoreSession, async (req, res) => {
 
   try {
     const result = await postArticle(storeUrl, article, blogName)
+    recordCreatedArticle(storeUrl, result.blog.id, result.articleId)
     res.json({ ok: true, ...result })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Không đăng được bài viết lên Sapo'

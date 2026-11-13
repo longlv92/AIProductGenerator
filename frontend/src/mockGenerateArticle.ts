@@ -1,4 +1,4 @@
-import { PROJECT_TOPIC, type Article, type ArticleIndustry, type ArticleTone, type ArticleTopic, type Industry } from './types'
+import { AUTO_TOPIC, PROJECT_TOPIC, topicForBlog, type Article, type ArticleIndustry, type ArticleTone, type ArticleTopic, type Industry } from './types'
 
 interface IndustryContext {
   /** Cụm từ tiếng Việt chỉ ngành hàng, chèn vào câu văn (VD "sản phẩm thời trang"). */
@@ -13,6 +13,8 @@ const INDUSTRY_CONTEXT: Record<ArticleIndustry, IndustryContext> = {
   'Mỹ phẩm - Làm đẹp': { label: 'mỹ phẩm và làm đẹp', imageKeyword: 'cosmetics skincare beauty' },
   'Thực phẩm - Nhà hàng': { label: 'thực phẩm', imageKeyword: 'food grocery' },
   'Đồ gia dụng - Sinh hoạt': { label: 'đồ gia dụng', imageKeyword: 'home appliances kitchen' },
+  'Thiết bị nhà bếp': { label: 'thiết bị nhà bếp', imageKeyword: 'modern kitchen' },
+  'Thiết bị vệ sinh - Nhà tắm': { label: 'thiết bị vệ sinh và phụ kiện nhà tắm', imageKeyword: 'modern bathroom' },
   'Hóa phẩm - Vệ sinh nhà cửa': { label: 'hóa phẩm vệ sinh nhà cửa', imageKeyword: 'household cleaning products' },
   'Nội thất - Trang trí': { label: 'đồ gỗ nội thất và trang trí nhà cửa', imageKeyword: 'wooden furniture home decor' },
   'Thiết kế - Thi công nội thất': { label: 'thiết kế thi công nội thất', imageKeyword: 'interior design living room' },
@@ -22,7 +24,10 @@ const INDUSTRY_CONTEXT: Record<ArticleIndustry, IndustryContext> = {
   'Công nghệ - Kỹ thuật số': { label: 'công nghệ và thiết bị kỹ thuật số', imageKeyword: 'electronics gadgets' },
   'Ô tô - Xe máy': { label: 'ô tô và xe máy', imageKeyword: 'car motorcycle accessories' },
   'Phụ tùng - Phụ kiện xe tải': { label: 'phụ tùng và phụ kiện xe tải, xe khách', imageKeyword: 'truck parts' },
+  'Thực phẩm bổ sung - Sức khỏe trẻ em': { label: 'sức khỏe trẻ em', imageKeyword: 'healthy children' },
   'Thiết bị điện': { label: 'thiết bị điện gia dụng', imageKeyword: 'home appliances electronics store' },
+  'Âm thanh - Loa, Micro, Tai nghe': { label: 'thiết bị âm thanh', imageKeyword: 'hifi speakers' },
+  'Vận tải - Gửi hàng, Chành xe': { label: 'vận tải, gửi hàng và chành xe', imageKeyword: 'cargo truck' },
   'Thể thao - Dịch vụ': { label: 'thể thao', imageKeyword: 'sports fitness equipment' },
   Khác: { label: 'cửa hàng', imageKeyword: 'retail store' },
 }
@@ -60,6 +65,11 @@ interface ArticleTemplate {
   authorPool: string[]
   /** Nối thêm ngành hàng vào cuối tiêu đề, viết sao cho khớp văn phong titleCores/angles của topic này. */
   titleIndustrySuffix: (industryLabel: string) => string
+  /**
+   * Từ khóa ảnh RIÊNG cho từng tiêu đề (song song `titleCores`) — ảnh khớp đúng nội dung bài (VD bài hội thảo ra ảnh hội
+   * thảo, bài bảo quản ra ảnh lọ thuốc) thay vì 1 ảnh chung cả chủ đề. Không khai báo → dùng `imageKeyword`.
+   */
+  titleImageKeywords?: string[]
 }
 
 const TEMPLATES: Record<ArticleTopic, ArticleTemplate> = {
@@ -1655,6 +1665,1554 @@ const INDUSTRY_TOPIC_OVERRIDES: Partial<Record<ArticleIndustry, Partial<Record<A
 // riêng về công trình đã làm nằm ở chủ đề "Dự án đã thi công" (xem generateProjectStoryArticle).
 INDUSTRY_TOPIC_OVERRIDES['Thiết kế - Thi công nội thất'] = INDUSTRY_TOPIC_OVERRIDES['Nội thất - Trang trí']
 
+/**
+ * Ngành Âm thanh (loa, micro, tai nghe, thiết bị xử lý) — 3 chủ đề "Tin tức ngành hàng", "Mẹo hay & Kinh nghiệm" (tư vấn
+ * chọn mua) và "Hướng dẫn sử dụng" khớp 3 blog hay gặp ở store âm thanh: Tin tức âm thanh / Tư vấn chọn mua / Hướng dẫn.
+ */
+INDUSTRY_TOPIC_OVERRIDES['Âm thanh - Loa, Micro, Tai nghe'] = {
+  'Tin tức ngành hàng': {
+    titleCores: [
+      'Xu hướng loa karaoke gia đình',
+      'Loa bluetooth di động thế hệ mới',
+      'Tai nghe chống ồn chủ động',
+      'Công nghệ vang số và chống hú',
+      'Thị trường thiết bị âm thanh gia đình',
+    ],
+    angles: ['năm nay có gì mới', 'đáng chú ý nhất hiện nay', 'người dùng Việt đang quan tâm', 'thay đổi ra sao', 'qua góc nhìn chuyên gia'],
+    introFragments: [
+      'Nhu cầu nghe nhạc và hát karaoke tại nhà của người Việt chưa bao giờ giảm, kéo theo hàng loạt dòng thiết bị âm thanh mới ra mắt mỗi năm.',
+      'Các hãng âm thanh liên tục cập nhật công nghệ kết nối, pin và xử lý âm thanh để thiết bị nhỏ gọn hơn mà vẫn cho âm lượng lớn.',
+      'Từ loa kéo, loa bluetooth đến tai nghe TWS, thị trường âm thanh đang có nhiều chuyển động đáng chú ý mà người dùng nên biết trước khi mua.',
+    ],
+    contextHeading: 'Bối cảnh thị trường',
+    contextFragments: [
+      'Không gian sống thu hẹp ở các căn hộ chung cư khiến người dùng ưu tiên loa nhỏ gọn, dễ di chuyển nhưng vẫn đủ hay để hát karaoke cuối tuần.',
+      'Kết nối Bluetooth 5.3 và chuẩn codec mới giúp âm thanh không dây gần với chất lượng có dây, xóa bớt rào cản của người nghe kỹ tính.',
+      'Các hãng như JBL, Harman Kardon tập trung vào loa di động và soundbar, trong khi Acnos, Kadma đẩy mạnh dòng loa kéo, loa xách tay karaoke.',
+    ],
+    detailHeading: 'Những điểm mới đáng chú ý',
+    detailFragments: [
+      'Vang số tích hợp chống hú tự động giúp người không rành kỹ thuật vẫn chỉnh được dàn karaoke ổn định chỉ bằng vài nút bấm.',
+      'Loa party ngày càng chú trọng hiệu ứng đèn LED đồng bộ theo nhạc, biến phòng khách thành không gian tiệc tại gia.',
+      'Tai nghe TWS tầm trung đã có chống ồn chủ động, thời lượng pin cả ngày — tính năng trước đây chỉ có ở dòng cao cấp.',
+      'Soundbar kết hợp loa sub không dây trở thành lựa chọn phổ biến thay cho dàn âm thanh nhiều cục cồng kềnh.',
+    ],
+    bulletFragments: [
+      'loa karaoke ngày càng nhỏ gọn nhưng công suất lớn hơn',
+      'micro không dây dùng sóng UHF ổn định, ít bị nhiễu',
+      'pin loa di động phổ biến từ 12 đến 24 giờ',
+      'ứng dụng điện thoại cho phép chỉnh EQ và echo trực tiếp',
+      'chuẩn chống nước IP67 xuất hiện nhiều ở loa bluetooth',
+    ],
+    bulletsHeading: 'Tóm tắt nhanh',
+    adviceHeading: 'Người mua nên lưu ý gì?',
+    adviceFragments: [
+      'chọn thiết bị theo diện tích phòng và nhu cầu thực tế, không chạy theo công suất danh nghĩa',
+      'ưu tiên hàng chính hãng có tem bảo hành, tránh hàng trôi nổi giá rẻ bất thường',
+      'nghe thử trực tiếp tại showroom trước khi quyết định với các dòng loa karaoke',
+    ],
+    faq: [
+      { q: 'Loa bluetooth có thay được dàn karaoke không?', a: 'Với phòng nhỏ và nhu cầu hát vui, loa xách tay karaoke kèm micro không dây là đủ. Phòng lớn hoặc hát thường xuyên vẫn nên dùng dàn loa, vang số và cục đẩy riêng.' },
+      { q: 'Có nên chờ mẫu mới ra rồi mới mua?', a: 'Nếu mẫu hiện tại đã đáp ứng đủ nhu cầu thì không cần chờ. Mẫu cũ khi có mẫu mới thường được giảm giá khá tốt.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Thị trường âm thanh thay đổi nhanh, nhưng tiêu chí chọn mua vẫn là nghe hay, bền và phù hợp không gian sử dụng.',
+      'Theo dõi chuyên mục tin tức âm thanh để cập nhật sớm các dòng sản phẩm mới.',
+      'Mọi thắc mắc về thiết bị, đội ngũ kỹ thuật luôn sẵn sàng tư vấn miễn phí.',
+    ],
+    ctaFragments: [
+      'Ghé showroom để nghe thử trực tiếp các mẫu loa, micro mới nhất.',
+      'Gọi hotline để được tư vấn cấu hình phù hợp với không gian nhà bạn.',
+      'Theo dõi fanpage để không bỏ lỡ tin tức và ưu đãi mới.',
+    ],
+    tagPool: ['tin tức âm thanh', 'loa karaoke', 'loa bluetooth', 'tai nghe', 'xu hướng'],
+    imageKeyword: 'studio monitor speakers|hifi speakers|audio mixer|stereo speakers',
+    titleIndustrySuffix: () => '',
+  },
+  'Mẹo hay & Kinh nghiệm': {
+    titleCores: [
+      'Cách chọn loa karaoke gia đình',
+      'Kinh nghiệm chọn micro không dây',
+      'Nên mua loa kéo hay loa xách tay',
+      'Cách chọn tai nghe phù hợp nhu cầu',
+      'Cách phối dàn karaoke loa, vang số, cục đẩy',
+    ],
+    angles: ['không lo mua sai', 'theo từng tầm giá', 'từ chuyên gia âm thanh', 'cho người mới bắt đầu', 'mới nhất năm nay'],
+    introFragments: [
+      'Chọn thiết bị âm thanh không khó nếu bạn biết rõ mình cần gì và dùng trong không gian nào.',
+      'Nhiều khách hàng mua loa công suất thật lớn rồi mới thấy phòng bị ù, tiếng không rõ — một lỗi rất phổ biến có thể tránh được.',
+      'Bài tư vấn này tổng hợp kinh nghiệm thực tế từ đội ngũ kỹ thuật sau hàng nghìn lần lắp đặt dàn âm thanh cho gia đình.',
+    ],
+    contextHeading: 'Xác định nhu cầu trước khi mua',
+    contextFragments: [
+      'Hãy trả lời ba câu hỏi: dùng trong phòng bao nhiêu mét vuông, chủ yếu để nghe nhạc hay hát karaoke, và có cần mang đi dã ngoại không.',
+      'Phòng dưới 20m² chỉ cần loa công suất vừa phải; phòng trên 30m² nên tính tới loa sub để tiếng bass đầy đặn hơn.',
+      'Nếu hát karaoke thường xuyên, khoản đầu tư vào micro và vang số quan trọng không kém chiếc loa.',
+    ],
+    detailHeading: 'Tiêu chí chọn theo từng loại thiết bị',
+    detailFragments: [
+      'Loa: nên xem dải tần, độ nhạy và kích thước bass thay vì chỉ nhìn con số công suất trên hộp.',
+      'Micro không dây: chọn sóng UHF, có chống hú và khoảng cách thu ít nhất 30–50m để hát thoải mái khắp phòng.',
+      'Tai nghe: TWS tiện lợi khi di chuyển, chụp tai cho âm trường rộng khi nghe lâu, tai nghe thể thao cần chống mồ hôi và bám tai chắc.',
+      'Vang số và cục đẩy: chọn công suất cục đẩy lớn hơn khoảng 1,5 lần công suất loa để dàn chạy khỏe, không bị méo tiếng.',
+    ],
+    bulletFragments: [
+      'phòng 15–20m²: loa karaoke 2 đường tiếng bass 25–30cm',
+      'phòng 25–35m²: thêm loa sub điện để tăng độ dày âm trầm',
+      'dã ngoại, ngoài trời: loa kéo hoặc loa xách tay pin từ 8 giờ',
+      'nghe nhạc trong phòng ngủ: loa bookshelf hoặc loa bluetooth mini',
+      'xem phim: soundbar kèm loa sub không dây',
+    ],
+    bulletsHeading: 'Gợi ý nhanh theo không gian',
+    adviceHeading: 'Sai lầm thường gặp khi mua thiết bị âm thanh',
+    adviceFragments: [
+      'chọn loa công suất quá lớn so với diện tích phòng khiến âm bị dội, ù tai',
+      'mua micro rẻ đi kèm dàn đắt khiến tiếng hát mỏng, dễ hú',
+      'bỏ qua chân loa, kệ loa khiến loa đặt sai độ cao và âm thanh bị mất chi tiết',
+    ],
+    faq: [
+      { q: 'Ngân sách 10 triệu nên mua gì để hát karaoke?', a: 'Có thể chọn 1 loa xách tay karaoke tốt kèm 2 micro không dây, hoặc cặp loa karaoke gia đình cỡ vừa kết hợp vang số cơ bản.' },
+      { q: 'Loa JBL có hát karaoke được không?', a: 'Một số dòng loa party của JBL có cổng micro và hát được, nhưng nếu ưu tiên karaoke thì các dòng chuyên dụng như Acnos, Kadma sẽ cho tiếng hát dễ nghe hơn.' },
+    ],
+    closingHeading: 'Tổng kết',
+    closingFragments: [
+      'Thiết bị phù hợp nhất là thiết bị khớp với không gian và thói quen sử dụng của gia đình bạn.',
+      'Đừng ngại nhờ kỹ thuật viên tư vấn cấu hình trước khi mua, việc này hoàn toàn miễn phí.',
+      'Một dàn âm thanh được phối đúng sẽ dùng bền và hay hơn nhiều so với mua lẻ từng món không đồng bộ.',
+    ],
+    ctaFragments: [
+      'Gửi diện tích phòng và nhu cầu sử dụng qua fanpage để nhận gợi ý cấu hình miễn phí.',
+      'Đặt lịch nghe thử tại showroom để chọn đúng thiết bị.',
+      'Gọi hotline để được kỹ thuật viên tư vấn trực tiếp.',
+    ],
+    tagPool: ['tư vấn chọn mua', 'kinh nghiệm', 'loa karaoke', 'micro không dây', 'tai nghe'],
+    imageKeyword: 'living room speakers|home theater speakers|bookshelf speakers|stereo speakers',
+    titleIndustrySuffix: () => '',
+  },
+  'Hướng dẫn sử dụng': {
+    titleCores: [
+      'Cách kết nối loa bluetooth với tivi và điện thoại',
+      'Cách chỉnh vang số hát karaoke hay',
+      'Cách ghép đôi micro không dây với loa',
+      'Cách bảo quản loa và micro bền lâu',
+      'Cách sạc và dùng pin loa di động đúng cách',
+    ],
+    angles: ['đơn giản trong 5 phút', 'từng bước chi tiết', 'cho người không rành kỹ thuật', 'tránh hỏng hóc', 'theo hướng dẫn của kỹ thuật viên'],
+    introFragments: [
+      'Thiết bị tốt nhưng cài đặt chưa đúng sẽ không phát huy hết chất lượng âm thanh.',
+      'Nhiều lỗi như rè, hú, mất kết nối thực ra chỉ do thao tác sai và có thể tự khắc phục tại nhà.',
+      'Bài hướng dẫn này giúp bạn làm chủ thiết bị âm thanh của mình mà không cần gọi kỹ thuật.',
+    ],
+    contextHeading: 'Trước khi bắt đầu',
+    contextFragments: [
+      'Đọc kỹ sách hướng dẫn đi kèm và kiểm tra thiết bị đã được sạc đầy hoặc cắm nguồn ổn định.',
+      'Đặt loa trên kệ hoặc chân loa chắc chắn, cách tường khoảng 20–30cm để tiếng bass không bị dội.',
+      'Vặn nhỏ âm lượng tổng trước khi bật thiết bị để tránh tiếng nổ làm hỏng củ loa.',
+    ],
+    detailHeading: 'Các bước thực hiện',
+    detailFragments: [
+      'Kết nối bluetooth: bật chế độ ghép đôi trên loa (thường nhấn giữ nút Bluetooth 3 giây), sau đó chọn tên loa trong danh sách thiết bị trên điện thoại hoặc tivi.',
+      'Chỉnh vang số: đặt echo khoảng 30–40%, delay vừa phải, giảm nhẹ dải bass của micro để tiếng hát rõ, rồi tăng dần âm lượng tổng.',
+      'Ghép micro: bật micro, nhấn nút pair trên đầu thu hoặc loa, chờ đèn báo đứng yên là micro đã nhận sóng.',
+      'Bảo quản: tháo pin micro khi không dùng lâu, lau loa bằng khăn khô, tránh để thiết bị nơi ẩm hoặc nắng trực tiếp.',
+    ],
+    bulletFragments: [
+      'luôn giảm âm lượng trước khi bật hoặc tắt thiết bị',
+      'không hướng micro thẳng vào loa để tránh hú',
+      'sạc loa di động khi pin còn khoảng 20%, không để cạn kiệt',
+      'cập nhật firmware qua ứng dụng của hãng nếu có',
+      'dùng dây tín hiệu đúng chuẩn, cắm chặt các jack',
+    ],
+    bulletsHeading: 'Mẹo dùng hằng ngày',
+    adviceHeading: 'Lỗi thường gặp và cách khắc phục',
+    adviceFragments: [
+      'loa bị rè: kiểm tra lại dây tín hiệu và giảm mức gain trên vang số',
+      'micro bị hú: lùi micro ra xa loa, bật chế độ chống hú hoặc giảm echo',
+      'mất kết nối bluetooth: xóa thiết bị khỏi danh sách đã ghép đôi rồi kết nối lại',
+    ],
+    faq: [
+      { q: 'Loa bluetooth kết nối được 2 điện thoại cùng lúc không?', a: 'Nhiều dòng loa hiện nay hỗ trợ kết nối đa điểm. Bạn xem mục thông số hoặc thử ghép đôi thiết bị thứ hai theo hướng dẫn của hãng.' },
+      { q: 'Có nên để loa cắm sạc liên tục?', a: 'Không nên. Hãy rút sạc khi pin đã đầy để kéo dài tuổi thọ pin của loa.' },
+    ],
+    closingHeading: 'Tổng kết',
+    closingFragments: [
+      'Chỉ cần sử dụng và bảo quản đúng cách, thiết bị âm thanh có thể đồng hành cùng gia đình bạn trong nhiều năm.',
+      'Nếu đã thử các bước trên mà vẫn chưa khắc phục được, hãy liên hệ bộ phận kỹ thuật để được hỗ trợ.',
+      'Lưu lại bài viết để tiện xem lại khi cần.',
+    ],
+    ctaFragments: [
+      'Liên hệ hotline kỹ thuật để được hướng dẫn trực tiếp qua video call.',
+      'Mang thiết bị đến showroom để được kiểm tra và căn chỉnh miễn phí.',
+      'Theo dõi chuyên mục hướng dẫn để cập nhật thêm mẹo sử dụng.',
+    ],
+    tagPool: ['hướng dẫn sử dụng', 'kết nối bluetooth', 'vang số', 'micro không dây', 'bảo quản loa'],
+    imageKeyword: 'bluetooth speaker|portable speaker|wireless speaker|smartphone speaker',
+    titleIndustrySuffix: () => '',
+  },
+  'Khuyến mãi': {
+    titleCores: [
+      'Ưu đãi loa karaoke gia đình',
+      'Combo loa kéo kèm micro không dây',
+      'Sale tai nghe chính hãng',
+      'Ưu đãi trọn bộ dàn karaoke',
+      'Giảm giá loa bluetooth JBL, Harman Kardon',
+    ],
+    angles: ['giảm đến 30%', 'quà tặng hấp dẫn', 'trả góp 0%', 'số lượng có hạn', 'giá tốt nhất năm'],
+    introFragments: [
+      'Chương trình ưu đãi lớn dành cho khách hàng yêu âm nhạc và karaoke đã chính thức bắt đầu.',
+      'Đây là thời điểm lý tưởng để nâng cấp dàn âm thanh gia đình với mức giá tốt nhất trong năm.',
+      'Hàng loạt mẫu loa, micro và tai nghe chính hãng được giảm giá sâu trong thời gian ngắn.',
+    ],
+    contextHeading: 'Vì sao nên mua trong đợt ưu đãi này?',
+    contextFragments: [
+      'Toàn bộ sản phẩm là hàng chính hãng, đầy đủ tem bảo hành, được kỹ thuật viên kiểm tra trước khi giao.',
+      'Ưu đãi áp dụng cho cả combo trọn bộ, giúp bạn tiết kiệm hơn nhiều so với mua lẻ từng thiết bị.',
+      'Hỗ trợ trả góp 0% lãi suất giúp dễ dàng sở hữu dàn âm thanh cao cấp.',
+    ],
+    detailHeading: 'Chi tiết chương trình',
+    detailFragments: [
+      'Giảm trực tiếp trên giá niêm yết với các dòng loa karaoke, loa kéo và loa bluetooth.',
+      'Mua combo loa và vang số được tặng kèm micro không dây hoặc chân loa.',
+      'Miễn phí giao hàng và lắp đặt, căn chỉnh âm thanh tận nhà trong nội thành.',
+    ],
+    bulletFragments: [
+      'giảm giá trực tiếp đến 30%',
+      'tặng micro, chân loa khi mua combo',
+      'trả góp 0% qua thẻ tín dụng',
+      'miễn phí lắp đặt và cân chỉnh âm thanh',
+      'bảo hành chính hãng 12–24 tháng',
+    ],
+    bulletsHeading: 'Quyền lợi khách hàng',
+    adviceHeading: 'Lưu ý khi tham gia',
+    adviceFragments: [
+      'ưu đãi áp dụng có thời hạn và số lượng giới hạn',
+      'quà tặng có thể thay đổi theo tình trạng kho',
+      'liên hệ trước để giữ hàng với các mẫu bán chạy',
+    ],
+    faq: [
+      { q: 'Mua online có được ưu đãi như tại showroom không?', a: 'Có, mọi kênh mua hàng đều áp dụng cùng mức ưu đãi trong thời gian chương trình.' },
+      { q: 'Hàng khuyến mãi có được bảo hành đầy đủ không?', a: 'Có, sản phẩm khuyến mãi vẫn được bảo hành chính hãng như bình thường.' },
+    ],
+    closingHeading: 'Đừng bỏ lỡ',
+    closingFragments: [
+      'Cơ hội sở hữu thiết bị âm thanh chính hãng với giá tốt chỉ có trong thời gian ngắn.',
+      'Nâng cấp dàn âm thanh để những buổi hát karaoke cuối tuần thêm trọn vẹn.',
+      'Số lượng có hạn, hãy đặt hàng sớm.',
+    ],
+    ctaFragments: [
+      'Gọi hotline hoặc nhắn tin fanpage để giữ suất ưu đãi.',
+      'Ghé showroom để nghe thử và nhận quà trực tiếp.',
+      'Đặt hàng online ngay hôm nay để được giao nhanh.',
+    ],
+    tagPool: ['khuyến mãi', 'giảm giá', 'loa karaoke', 'combo karaoke', 'trả góp 0%'],
+    imageKeyword: 'bluetooth speaker|wireless headphones|portable speaker|karaoke microphone',
+    titleIndustrySuffix: () => '',
+  },
+  'Đánh giá sản phẩm': {
+    titleCores: [
+      'Đánh giá loa xách tay karaoke',
+      'Trải nghiệm tai nghe TWS chống ồn',
+      'Đánh giá loa soundbar kèm sub',
+      'Đánh giá loa bluetooth Harman Kardon',
+      'Đánh giá micro karaoke không dây',
+    ],
+    angles: ['sau 1 tháng sử dụng', 'có đáng tiền không', 'ưu và nhược điểm', 'chi tiết từ A đến Z', 'trong tầm giá'],
+    introFragments: [
+      'Thông số trên giấy chỉ là một phần, trải nghiệm thực tế mới cho biết thiết bị có thật sự đáng mua.',
+      'Đội ngũ kỹ thuật đã dùng thử sản phẩm trong nhiều tình huống: nghe nhạc, xem phim và hát karaoke.',
+      'Bài đánh giá khách quan giúp bạn có thêm góc nhìn trước khi quyết định.',
+    ],
+    contextHeading: 'Thiết kế và hoàn thiện',
+    contextFragments: [
+      'Vỏ loa chắc chắn, các nút điều khiển bố trí hợp lý, dễ thao tác kể cả khi đang hát.',
+      'Trọng lượng vừa phải, có quai xách hoặc bánh xe giúp di chuyển thuận tiện.',
+      'Hiệu ứng đèn LED và màu sắc trẻ trung phù hợp với không gian phòng khách hiện đại.',
+    ],
+    detailHeading: 'Chất lượng âm thanh',
+    detailFragments: [
+      'Dải trầm chắc, không bị ù khi mở âm lượng lớn trong phòng khoảng 20m².',
+      'Dải trung rõ ràng, giọng hát nổi bật, phù hợp cả nhạc trẻ lẫn nhạc vàng.',
+      'Dải cao sáng nhưng không chói, nghe lâu không mệt tai.',
+      'Kết nối ổn định, độ trễ thấp khi xem phim hoặc chơi game.',
+    ],
+    bulletFragments: [
+      'âm bass mạnh, chắc tiếng',
+      'pin dùng thực tế trên 10 giờ',
+      'kết nối bluetooth nhanh, ổn định',
+      'micro bắt giọng tốt, ít hú',
+      'giá hợp lý trong phân khúc',
+    ],
+    bulletsHeading: 'Ưu điểm nổi bật',
+    adviceHeading: 'Điểm cần cân nhắc',
+    adviceFragments: [
+      'âm lượng tối đa phù hợp phòng vừa và nhỏ, chưa đủ cho sân vườn rộng',
+      'ứng dụng điều khiển chưa có nhiều tùy chỉnh chuyên sâu',
+      'cần thời gian làm quen để chỉnh echo phù hợp giọng hát',
+    ],
+    faq: [
+      { q: 'Sản phẩm phù hợp với ai?', a: 'Phù hợp với gia đình hay hát karaoke cuối tuần, người thích nghe nhạc và cần thiết bị dễ di chuyển.' },
+      { q: 'Có nên mua thêm loa sub?', a: 'Nếu phòng trên 25m² hoặc bạn thích tiếng bass sâu, ghép thêm loa sub sẽ cải thiện rõ rệt.' },
+    ],
+    closingHeading: 'Kết luận',
+    closingFragments: [
+      'Đây là lựa chọn đáng cân nhắc trong tầm giá nhờ âm thanh cân bằng và thiết kế tiện dụng.',
+      'Nên nghe thử trực tiếp để cảm nhận rõ nhất chất âm có hợp gu của bạn hay không.',
+      'Mọi câu hỏi về sản phẩm, đội ngũ kỹ thuật luôn sẵn sàng giải đáp.',
+    ],
+    ctaFragments: [
+      'Ghé showroom để nghe thử trực tiếp sản phẩm.',
+      'Liên hệ hotline để nhận báo giá và ưu đãi hiện có.',
+      'Xem thêm các bài đánh giá khác trên website.',
+    ],
+    tagPool: ['đánh giá', 'review', 'loa bluetooth', 'tai nghe', 'micro karaoke'],
+    imageKeyword: 'over ear headphones|wireless earbuds|portable speaker|hifi speakers',
+    titleIndustrySuffix: () => '',
+  },
+  'Sự kiện cửa hàng': {
+    titleCores: [
+      'Khai trương showroom âm thanh mới',
+      'Ngày hội trải nghiệm loa karaoke',
+      'Đêm nhạc trải nghiệm dàn âm thanh',
+      'Workshop chỉnh âm thanh karaoke tại nhà',
+      'Tuần lễ vàng thiết bị âm thanh',
+    ],
+    angles: ['cuối tuần này', 'với nhiều quà tặng', 'miễn phí tham dự', 'cùng chuyên gia âm thanh', 'dành cho khách hàng thân thiết'],
+    introFragments: [
+      'Sự kiện là dịp để khách hàng nghe thử và trải nghiệm trực tiếp các thiết bị âm thanh mới nhất.',
+      'Chúng tôi trân trọng mời bạn và gia đình đến tham dự chương trình với nhiều hoạt động hấp dẫn.',
+      'Không chỉ mua sắm, đây còn là cơ hội giao lưu cùng cộng đồng yêu âm nhạc.',
+    ],
+    contextHeading: 'Giới thiệu sự kiện',
+    contextFragments: [
+      'Khu trải nghiệm được bố trí theo từng không gian: phòng karaoke gia đình, góc nghe nhạc hi-fi và khu tai nghe.',
+      'Kỹ thuật viên sẽ trực tiếp demo cách phối dàn và chỉnh vang số để hát hay hơn.',
+      'Khách tham dự được nghe thử mọi sản phẩm mà không bắt buộc mua hàng.',
+    ],
+    detailHeading: 'Hoạt động nổi bật',
+    detailFragments: [
+      'Thi hát karaoke với giải thưởng là loa bluetooth và tai nghe chính hãng.',
+      'Tư vấn cấu hình miễn phí theo diện tích phòng của từng gia đình.',
+      'Ưu đãi riêng cho khách mua hàng tại sự kiện.',
+    ],
+    bulletFragments: [
+      'nghe thử miễn phí mọi thiết bị',
+      'quà tặng cho khách check-in',
+      'bốc thăm trúng thưởng cuối chương trình',
+      'ưu đãi riêng chỉ có tại sự kiện',
+      'tư vấn 1–1 cùng kỹ thuật viên',
+    ],
+    bulletsHeading: 'Quyền lợi khi tham dự',
+    adviceHeading: 'Thông tin cần biết',
+    adviceFragments: [
+      'đăng ký trước để được giữ chỗ trong khu trải nghiệm',
+      'mang theo điện thoại để thử kết nối với loa yêu thích',
+      'quà tặng có số lượng giới hạn theo thứ tự đến trước',
+    ],
+    faq: [
+      { q: 'Có mất phí tham dự không?', a: 'Sự kiện hoàn toàn miễn phí, bạn chỉ cần đăng ký trước để được giữ chỗ.' },
+      { q: 'Có được mang trẻ em theo không?', a: 'Có, khu trải nghiệm có chỉnh âm lượng vừa phải, phù hợp cả gia đình.' },
+    ],
+    closingHeading: 'Hẹn gặp bạn',
+    closingFragments: [
+      'Sự kiện sẽ là dịp tuyệt vời để tìm ra thiết bị âm thanh ưng ý cho gia đình.',
+      'Rất mong được đón tiếp bạn tại showroom.',
+      'Chia sẻ thông tin sự kiện để bạn bè cùng tham gia.',
+    ],
+    ctaFragments: [
+      'Đăng ký tham dự qua fanpage hoặc hotline.',
+      'Theo dõi fanpage để cập nhật lịch trình chi tiết.',
+      'Rủ bạn bè cùng đến để nhận thêm quà.',
+    ],
+    tagPool: ['sự kiện', 'showroom', 'trải nghiệm âm thanh', 'karaoke', 'quà tặng'],
+    imageKeyword: 'concert speakers|stage speakers|karaoke microphone|sound system speakers',
+    titleIndustrySuffix: () => '',
+  },
+}
+
+/**
+ * Ngành Vận tải - Gửi hàng, Chành xe (gửi hàng lẻ, hàng ghép, bao chuyến từ Đồng Nai đi TP.HCM, miền Trung, Tây Nguyên,
+ * miền Tây) — nội dung bám theo dịch vụ và tuyến xe thật của ngành, không nói chung chung "sản phẩm".
+ */
+INDUSTRY_TOPIC_OVERRIDES['Vận tải - Gửi hàng, Chành xe'] = {
+  'Tin tức ngành hàng': {
+    titleCores: [
+      'Giá cước vận chuyển hàng hóa đường bộ',
+      'Nhu cầu gửi hàng từ Đồng Nai đi các tỉnh',
+      'Tuyến cao tốc mới rút ngắn thời gian giao hàng',
+      'Thị trường chành xe và gửi hàng ghép',
+      'Mùa cao điểm vận chuyển nông sản',
+    ],
+    angles: ['có gì thay đổi', 'đáng chú ý nhất hiện nay', 'chủ hàng cần biết', 'tác động ra sao tới chủ shop', 'qua góc nhìn nhà xe'],
+    introFragments: [
+      'Đồng Nai là cửa ngõ công nghiệp của miền Đông Nam Bộ, mỗi ngày có hàng trăm chuyến xe chở hàng đi TP.HCM, miền Trung, Tây Nguyên và miền Tây.',
+      'Hoạt động vận chuyển hàng hóa đường bộ đang có nhiều chuyển động mới, từ giá nhiên liệu, hạ tầng cao tốc đến thói quen gửi hàng của chủ shop online.',
+      'Với doanh nghiệp, nhà vườn hay chủ shop, chi phí và thời gian vận chuyển ảnh hưởng trực tiếp đến giá bán và trải nghiệm của khách hàng.',
+    ],
+    contextHeading: 'Bối cảnh thị trường vận tải',
+    contextFragments: [
+      'Các tuyến cao tốc Dầu Giây – Phan Thiết, Phan Thiết – Vĩnh Hảo, Vĩnh Hảo – Cam Lâm đưa vào khai thác giúp xe tải từ Đồng Nai đi Nha Trang, Quảng Ngãi rút ngắn đáng kể thời gian.',
+      'Thương mại điện tử phát triển khiến lượng đơn hàng lẻ tăng mạnh, nhà xe phải tổ chức gom hàng, ghép chuyến linh hoạt hơn để giữ giá cước hợp lý.',
+      'Giá dầu diesel biến động là yếu tố lớn nhất tác động đến cước vận chuyển, nhất là với các tuyến dài lên Tây Nguyên hay ra miền Trung.',
+    ],
+    detailHeading: 'Những điểm mới đáng chú ý',
+    detailFragments: [
+      'Nhiều nhà xe đã gắn định vị GPS và gửi mã vận đơn cho khách, giúp chủ hàng theo dõi được xe đang ở đâu thay vì phải gọi điện hỏi.',
+      'Dịch vụ gửi hàng ghép ngày càng phổ biến với các shop nhỏ — không cần thuê nguyên xe mà vẫn đi được tuyến dài với chi phí thấp.',
+      'Mùa thu hoạch nông sản Tây Nguyên và miền Tây, nhu cầu xe bao chuyến tăng vọt, chủ hàng nên đặt xe sớm vài ngày để giữ chỗ.',
+      'Thu hộ (COD) trở thành dịch vụ gần như bắt buộc với chủ shop online gửi hàng đi tỉnh.',
+    ],
+    bulletFragments: [
+      'cao tốc mới giúp tuyến Đồng Nai – Nha Trang nhanh hơn',
+      'hàng ghép là lựa chọn tiết kiệm cho shop nhỏ',
+      'xe bao chuyến tăng giá vào mùa nông sản',
+      'theo dõi hành trình bằng GPS ngày càng phổ biến',
+      'thu hộ COD hỗ trợ chủ shop bán hàng đi tỉnh',
+    ],
+    bulletsHeading: 'Tóm tắt nhanh',
+    adviceHeading: 'Chủ hàng nên lưu ý gì?',
+    adviceFragments: [
+      'so sánh giá cước theo kg, theo khối và theo chuyến để chọn hình thức gửi phù hợp với lượng hàng',
+      'đặt xe trước vào các dịp cao điểm như Tết, mùa nông sản để tránh hết chỗ',
+      'khai báo đúng giá trị hàng hóa để được đền bù đầy đủ khi có sự cố',
+    ],
+    faq: [
+      { q: 'Giá cước vận chuyển có thay đổi theo giá xăng dầu không?', a: 'Có. Nhà xe thường điều chỉnh cước khi giá dầu biến động mạnh, vì vậy nên hỏi báo giá mới nhất trước mỗi lần gửi.' },
+      { q: 'Gửi hàng từ Đồng Nai đi Nha Trang mất bao lâu?', a: 'Với hàng ghép, hàng thường đến nơi sau khoảng 1 ngày. Xe bao chuyến có thể giao trong ngày tùy giờ xuất phát.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Thị trường vận tải thay đổi liên tục, nhưng điều chủ hàng cần nhất vẫn là giao đúng hẹn, hàng nguyên vẹn và cước rõ ràng.',
+      'Theo dõi chuyên mục tin tức vận tải để cập nhật sớm giá cước và lịch xe mới.',
+      'Mọi thắc mắc về tuyến xe, giá cước, đội ngũ điều phối luôn sẵn sàng hỗ trợ.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để nhận báo giá cước mới nhất cho tuyến bạn cần gửi.',
+      'Nhắn tin fanpage để đặt lịch lấy hàng tận nơi.',
+      'Ghé kho Đồng Nai để gửi hàng và được tư vấn đóng gói miễn phí.',
+    ],
+    tagPool: ['tin tức vận tải', 'giá cước', 'gửi hàng đi tỉnh', 'chành xe', 'đồng nai'],
+    imageKeyword: 'freight truck|cargo truck|coach bus|intercity bus',
+    titleIndustrySuffix: () => '',
+  },
+  'Mẹo hay & Kinh nghiệm': {
+    titleCores: [
+      'Cách đóng gói hàng gửi đi tỉnh an toàn',
+      'Nên gửi hàng lẻ, hàng ghép hay thuê xe bao chuyến',
+      'Kinh nghiệm gửi nông sản đi xa',
+      'Cách tính cước vận chuyển theo kg và theo khối',
+      'Kinh nghiệm chọn nhà xe uy tín',
+    ],
+    angles: ['chủ shop nên biết', 'để tiết kiệm chi phí', 'tránh hư hỏng, thất lạc', 'cho người mới gửi hàng', 'từ kinh nghiệm thực tế'],
+    introFragments: [
+      'Gửi hàng đi tỉnh tưởng đơn giản nhưng chỉ cần đóng gói sai cách hoặc chọn sai hình thức vận chuyển là có thể tốn thêm chi phí, thậm chí hư hỏng hàng.',
+      'Không ít chủ shop từng phải đền tiền cho khách vì hàng vỡ, móp méo hoặc giao trễ — phần lớn có thể tránh được nếu nắm vài kinh nghiệm cơ bản.',
+      'Mỗi loại hàng, mỗi tuyến đường phù hợp với một cách gửi khác nhau. Bài viết dưới đây tổng hợp kinh nghiệm từ đội ngũ nhà xe nhiều năm chạy tuyến.',
+    ],
+    contextHeading: 'Vì sao cần chọn đúng cách gửi?',
+    contextFragments: [
+      'Hàng lẻ tính cước theo kiện hoặc theo kg, phù hợp vài thùng hàng; hàng ghép tính theo khối hoặc tấn, rẻ hơn khi hàng nhiều nhưng chưa đủ một xe.',
+      'Xe bao chuyến chạy thẳng, không dừng gom hàng nên nhanh và an toàn nhất, phù hợp hàng số lượng lớn hoặc hàng cần giao gấp.',
+      'Hàng nông sản, hàng dễ vỡ, hàng cồng kềnh mỗi loại cần cách đóng gói và xếp xe khác nhau để không bị dập, đè.',
+    ],
+    detailHeading: 'Kinh nghiệm thực tế',
+    detailFragments: [
+      'Dùng thùng carton 5 lớp cho hàng nặng, chèn xốp hoặc giấy vụn vào khoảng trống để hàng không xê dịch khi xe chạy.',
+      'Hàng dễ vỡ nên dán nhãn "Hàng dễ vỡ – Nhẹ tay" và báo trước với nhà xe để được xếp lên trên, không bị đè.',
+      'Nông sản như trái cây, rau củ nên đóng sọt hoặc thùng có lỗ thoáng khí, gửi chuyến tối để hàng đến nơi vào sáng sớm còn tươi.',
+      'Ghi rõ tên, số điện thoại người nhận ở ít nhất 2 mặt thùng, chụp ảnh kiện hàng trước khi giao cho nhà xe.',
+    ],
+    bulletFragments: [
+      '1 – 5 kiện hàng: chọn gửi hàng lẻ',
+      'vài tạ đến vài tấn: chọn gửi hàng ghép',
+      'hàng nhiều hoặc cần gấp: thuê xe bao chuyến',
+      'hàng giá trị cao: mua thêm bảo hiểm hàng hóa',
+      'luôn giữ lại biên nhận và mã vận đơn',
+    ],
+    bulletsHeading: 'Chọn hình thức gửi nhanh',
+    adviceHeading: 'Lưu ý để tiết kiệm chi phí',
+    adviceFragments: [
+      'gom hàng gửi một lần thay vì gửi lẻ nhiều lần trong tuần',
+      'hỏi rõ cước đã bao gồm bốc xếp, giao tận nơi hay chưa để tránh phát sinh',
+      'chọn nhà xe có tuyến cố định, chạy hằng ngày để hàng không phải chờ ghép chuyến lâu',
+    ],
+    faq: [
+      { q: 'Hàng cồng kềnh nhưng nhẹ tính cước thế nào?', a: 'Thường được quy đổi theo thể tích (khối). Nhà xe sẽ tính theo giá trị lớn hơn giữa khối lượng thực và khối lượng quy đổi.' },
+      { q: 'Có gửi được hàng đông lạnh không?', a: 'Hàng cần giữ lạnh nên đóng thùng xốp kèm đá khô, gửi chuyến nhanh và báo trước để nhà xe sắp xếp chỗ phù hợp.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Đóng gói kỹ và chọn đúng hình thức vận chuyển là hai cách đơn giản nhất để hàng đến tay khách an toàn với chi phí hợp lý.',
+      'Hy vọng những kinh nghiệm trên giúp việc gửi hàng đi tỉnh của bạn nhẹ nhàng hơn.',
+      'Cần tư vấn cách gửi cho từng loại hàng, cứ liên hệ đội ngũ điều phối để được hỗ trợ.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để được tư vấn hình thức gửi tiết kiệm nhất cho lô hàng của bạn.',
+      'Đặt lịch lấy hàng tận nơi qua fanpage hoặc Zalo.',
+      'Mang hàng tới kho Đồng Nai để được hỗ trợ đóng gói miễn phí.',
+    ],
+    tagPool: ['kinh nghiệm gửi hàng', 'đóng gói hàng hóa', 'hàng ghép', 'bao chuyến', 'tiết kiệm cước'],
+    imageKeyword: 'cargo truck|delivery truck|coach bus|sleeper bus',
+    titleIndustrySuffix: () => '',
+  },
+  'Hướng dẫn sử dụng': {
+    titleCores: [
+      'Hướng dẫn gửi hàng lẻ đi tỉnh',
+      'Hướng dẫn đặt xe bao chuyến',
+      'Hướng dẫn tra cứu hành trình đơn hàng',
+      'Hướng dẫn gửi hàng thu hộ COD',
+      'Hướng dẫn khai báo giá trị và mua bảo hiểm hàng hóa',
+    ],
+    angles: ['từng bước chi tiết', 'đơn giản cho người mới', 'chỉ trong 5 phút', 'qua điện thoại và Zalo', 'tại kho Đồng Nai'],
+    introFragments: [
+      'Nhiều khách hàng lần đầu gửi hàng còn bỡ ngỡ không biết bắt đầu từ đâu, cần chuẩn bị gì và mất bao lâu thì hàng tới nơi.',
+      'Quy trình gửi hàng tại nhà xe khá đơn giản — chỉ cần chuẩn bị đúng thông tin, phần còn lại đội ngũ điều phối sẽ hỗ trợ.',
+      'Bài viết hướng dẫn từng bước để bạn tự gửi hàng, theo dõi đơn và nhận tiền thu hộ mà không cần phải hỏi lại nhiều lần.',
+    ],
+    contextHeading: 'Cần chuẩn bị gì trước khi gửi?',
+    contextFragments: [
+      'Thông tin người nhận gồm họ tên, số điện thoại và địa chỉ chi tiết đến phường, xã — địa chỉ càng rõ, giao càng nhanh.',
+      'Hàng đã được đóng gói chắc chắn, có ghi chú nếu là hàng dễ vỡ, hàng cần giữ khô hoặc không được xếp chồng.',
+      'Số tiền cần thu hộ (nếu có) và giá trị hàng hóa để khai báo, giúp việc đền bù rõ ràng khi có sự cố.',
+    ],
+    detailHeading: 'Quy trình gửi hàng',
+    detailFragments: [
+      'Đầu tiên, gọi hotline hoặc nhắn Zalo báo loại hàng, số kiện, khối lượng và tuyến cần gửi để nhận báo giá.',
+      'Bạn có thể mang hàng tới kho Đồng Nai hoặc hẹn giờ để xe tới lấy hàng tận nơi.',
+      'Khi nhận hàng, nhân viên kiểm đếm, cân hàng, lập phiếu gửi và gửi mã vận đơn qua tin nhắn cho bạn.',
+      'Trong lúc hàng đi đường, bạn theo dõi hành trình bằng mã vận đơn; khi giao xong, tiền thu hộ được đối soát và chuyển khoản theo lịch đã thỏa thuận.',
+    ],
+    bulletFragments: [
+      'kiểm tra kỹ thông tin người nhận trước khi chốt phiếu',
+      'giữ lại phiếu gửi hoặc ảnh chụp phiếu',
+      'báo trước nếu cần giao giờ hành chính hoặc giao gấp',
+      'hàng giá trị cao nên khai báo và mua bảo hiểm',
+      'liên hệ ngay nếu người nhận báo hàng có dấu hiệu bất thường',
+    ],
+    bulletsHeading: 'Lưu ý quan trọng',
+    adviceHeading: 'Mẹo để đơn hàng đi nhanh hơn',
+    adviceFragments: [
+      'gửi hàng trước giờ xe chạy trong ngày để kịp chuyến sớm nhất',
+      'báo trước cho người nhận để luôn có người nghe máy khi xe tới',
+      'dùng cùng một mẫu tin nhắn đặt hàng để nhân viên xử lý nhanh hơn',
+    ],
+    faq: [
+      { q: 'Tôi có thể đổi địa chỉ nhận khi hàng đang đi đường không?', a: 'Được, nếu hàng chưa giao. Bạn báo ngay cho tổng đài kèm mã vận đơn; phí phát sinh (nếu có) sẽ được báo trước.' },
+      { q: 'Tiền thu hộ bao lâu thì được chuyển về?', a: 'Tiền thu hộ thường được đối soát và chuyển khoản trong 1 – 3 ngày làm việc sau khi giao hàng thành công.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chỉ với vài bước đơn giản, việc gửi hàng đi tỉnh trở nên nhanh chóng và dễ kiểm soát hơn nhiều.',
+      'Lưu lại bài hướng dẫn này để dùng cho những lần gửi hàng tiếp theo.',
+      'Nếu gặp khó khăn ở bước nào, đội ngũ chăm sóc khách hàng luôn sẵn sàng hỗ trợ.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để được hướng dẫn và báo giá ngay.',
+      'Nhắn Zalo để đặt lịch lấy hàng tận nơi.',
+      'Theo dõi fanpage để cập nhật lịch xe và hướng dẫn mới.',
+    ],
+    tagPool: ['hướng dẫn gửi hàng', 'tra cứu vận đơn', 'thu hộ cod', 'bảo hiểm hàng hóa', 'gửi hàng đi tỉnh'],
+    imageKeyword: 'delivery truck|cargo truck|coach bus|luxury bus',
+    titleIndustrySuffix: () => '',
+  },
+  'Khuyến mãi': {
+    titleCores: [
+      'Ưu đãi cước gửi hàng tuyến Đồng Nai – TP.HCM',
+      'Giảm giá cước hàng ghép đi miền Trung',
+      'Ưu đãi thuê xe bao chuyến đi Tây Nguyên',
+      'Miễn phí lấy hàng tận nơi',
+      'Ưu đãi cho chủ shop gửi hàng thường xuyên',
+    ],
+    angles: ['— tiết kiệm đến 20%', 'dành cho khách hàng mới', 'trong tháng này', 'áp dụng mọi tuyến', '— số chuyến có hạn'],
+    introFragments: [
+      'Nhằm tri ân khách hàng đã đồng hành, nhà xe triển khai chương trình ưu đãi cước vận chuyển trên các tuyến chạy hằng ngày.',
+      'Nếu bạn đang có kế hoạch gửi lô hàng lớn hoặc cần xe cho mùa cao điểm, đây là thời điểm tốt để tiết kiệm chi phí vận chuyển.',
+      'Chương trình ưu đãi lần này dành cho cả khách gửi lẻ lẫn doanh nghiệp, nhà vườn cần xe bao chuyến.',
+    ],
+    contextHeading: 'Vì sao nên tận dụng ưu đãi lần này?',
+    contextFragments: [
+      'Chi phí vận chuyển chiếm phần đáng kể trong giá vốn của chủ shop và nhà vườn, giảm vài phần trăm cước cũng giúp tăng lợi nhuận rõ rệt.',
+      'Ưu đãi áp dụng trên các tuyến xe chạy cố định mỗi ngày nên hàng không phải chờ lâu để ghép chuyến.',
+      'Khách hàng ký hợp đồng gửi hàng thường xuyên còn được giữ mức cước ưu đãi trong nhiều tháng tiếp theo.',
+    ],
+    detailHeading: 'Cách nhận ưu đãi',
+    detailFragments: [
+      'Báo mã chương trình khi gọi hotline hoặc nhắn Zalo đặt xe, nhân viên sẽ áp dụng mức cước ưu đãi ngay trên phiếu gửi.',
+      'Với xe bao chuyến, nên đặt lịch trước ít nhất 1 – 2 ngày vì số chuyến ưu đãi mỗi tuần có giới hạn.',
+      'Chủ shop gửi hàng đều đặn có thể đăng ký tài khoản khách hàng thân thiết để được đối soát công nợ và cước theo tháng.',
+    ],
+    bulletFragments: [
+      'áp dụng cho gửi hàng lẻ, hàng ghép và bao chuyến',
+      'miễn phí lấy hàng tận nơi trong khu vực Đồng Nai',
+      'hỗ trợ thu hộ COD không thu thêm phí',
+      'có xuất hóa đơn VAT cho doanh nghiệp',
+      'ưu tiên xếp chuyến sớm nhất trong ngày',
+    ],
+    bulletsHeading: 'Quyền lợi nổi bật',
+    adviceHeading: 'Lưu ý khi tham gia',
+    adviceFragments: [
+      'ưu đãi không cộng dồn với các chương trình giảm cước khác',
+      'cước ưu đãi tính theo bảng giá niêm yết tại thời điểm gửi',
+      'đặt xe sớm để chắc chắn còn chuyến trong thời gian chương trình',
+    ],
+    faq: [
+      { q: 'Ưu đãi có áp dụng cho hàng cồng kềnh không?', a: 'Có, ưu đãi áp dụng trên cước đã quy đổi theo khối lượng hoặc thể tích của hàng.' },
+      { q: 'Tôi gửi hàng lần đầu có được ưu đãi không?', a: 'Có. Khách hàng mới được giảm cước ngay đơn đầu tiên khi báo mã chương trình.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Ưu đãi có thời hạn — đặt xe sớm để không bỏ lỡ mức cước tốt nhất trong tháng.',
+      'Cảm ơn quý khách đã tin tưởng gửi gắm hàng hóa trên mỗi chuyến xe.',
+      'Mọi thắc mắc về chương trình, vui lòng liên hệ tổng đài để được giải đáp.',
+    ],
+    ctaFragments: [
+      'Gọi hotline ngay để giữ mức cước ưu đãi.',
+      'Nhắn Zalo để đặt lịch lấy hàng miễn phí.',
+      'Theo dõi fanpage để nhận thông báo ưu đãi tiếp theo.',
+    ],
+    tagPool: ['ưu đãi cước', 'khuyến mãi vận chuyển', 'gửi hàng giá rẻ', 'bao chuyến', 'đồng nai'],
+    imageKeyword: 'freight truck|semi truck|coach bus|intercity bus',
+    titleIndustrySuffix: () => '',
+  },
+  'Đánh giá sản phẩm': {
+    titleCores: [
+      'So sánh gửi hàng lẻ và gửi hàng ghép',
+      'Đánh giá dịch vụ xe bao chuyến',
+      'Gửi hàng qua nhà xe hay qua đơn vị chuyển phát',
+      'Đánh giá tuyến Đồng Nai – Đà Lạt mùa nông sản',
+      'Trải nghiệm gửi hàng thu hộ COD đi miền Tây',
+    ],
+    angles: ['ưu và nhược điểm', 'nên chọn loại nào', 'từ góc nhìn chủ shop', 'chi phí thực tế ra sao', 'sau nhiều tháng sử dụng'],
+    introFragments: [
+      'Mỗi hình thức vận chuyển có ưu điểm riêng, chọn đúng sẽ giúp tiết kiệm đáng kể cả chi phí lẫn thời gian giao hàng.',
+      'Bài viết tổng hợp đánh giá thực tế từ các chủ shop, nhà vườn và doanh nghiệp thường xuyên gửi hàng từ Đồng Nai đi các tỉnh.',
+      'Không có hình thức nào tốt nhất cho mọi trường hợp — điều quan trọng là phù hợp với lượng hàng, tuyến đường và thời gian giao.',
+    ],
+    contextHeading: 'Tiêu chí đánh giá',
+    contextFragments: [
+      'Chi phí: so sánh cước trên mỗi kg, mỗi khối hàng và các khoản phát sinh như bốc xếp, giao tận nơi.',
+      'Thời gian: tính từ lúc giao hàng cho nhà xe đến khi người nhận ký nhận, bao gồm cả thời gian chờ ghép chuyến.',
+      'Độ an toàn: tỷ lệ hàng nguyên vẹn, khả năng theo dõi hành trình và chính sách đền bù khi có sự cố.',
+    ],
+    detailHeading: 'Kết quả đánh giá',
+    detailFragments: [
+      'Gửi hàng lẻ linh hoạt, phù hợp vài kiện hàng mỗi ngày, nhưng cước tính trên mỗi kg cao hơn hàng ghép.',
+      'Hàng ghép có cước thấp hơn rõ rệt khi hàng từ vài tạ trở lên, đổi lại có thể chờ thêm vài giờ để gom đủ chuyến.',
+      'Xe bao chuyến nhanh và an toàn nhất vì chạy thẳng, không bốc dỡ dọc đường, phù hợp hàng giá trị cao hoặc cần giao gấp.',
+      'So với đơn vị chuyển phát, nhà xe có lợi thế ở hàng nặng, hàng cồng kềnh và tuyến tỉnh; chuyển phát mạnh ở hàng nhỏ giao tận nhà trong nội thành.',
+    ],
+    bulletFragments: [
+      'hàng lẻ: linh hoạt, phù hợp shop nhỏ',
+      'hàng ghép: tiết kiệm cho lô hàng vừa',
+      'bao chuyến: nhanh, an toàn cho hàng lớn',
+      'nhà xe mạnh ở hàng nặng, cồng kềnh',
+      'nên kết hợp nhiều hình thức tùy đơn hàng',
+    ],
+    bulletsHeading: 'Tóm tắt đánh giá',
+    adviceHeading: 'Lời khuyên lựa chọn',
+    adviceFragments: [
+      'ước tính tổng lượng hàng mỗi tuần để chọn hình thức gửi có chi phí trên mỗi đơn thấp nhất',
+      'ưu tiên nhà xe có tuyến cố định và chính sách đền bù rõ ràng bằng văn bản',
+      'thử gửi một vài đơn nhỏ trước khi ký hợp đồng gửi hàng dài hạn',
+    ],
+    faq: [
+      { q: 'Hàng ghép có bị lẫn hay thất lạc không?', a: 'Hàng được dán mã và lập phiếu riêng cho từng chủ hàng, kiểm đếm khi lên và xuống xe nên rất hiếm khi thất lạc.' },
+      { q: 'Bao nhiêu hàng thì nên thuê xe bao chuyến?', a: 'Khi hàng gần đầy một xe (từ khoảng 70% tải trọng) hoặc cần giao gấp, thuê bao chuyến thường kinh tế và an toàn hơn ghép hàng.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Hiểu rõ ưu nhược điểm từng hình thức giúp bạn chủ động hơn trong việc lên kế hoạch giao hàng.',
+      'Hy vọng bài đánh giá giúp bạn chọn được cách gửi phù hợp với nhu cầu kinh doanh.',
+      'Đội ngũ điều phối luôn sẵn sàng tư vấn phương án vận chuyển tối ưu cho từng lô hàng.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để được tư vấn và so sánh giá cước cho lô hàng của bạn.',
+      'Nhắn Zalo gửi thông tin hàng để nhận báo giá trong vài phút.',
+      'Theo dõi fanpage để xem thêm các bài đánh giá và kinh nghiệm vận chuyển.',
+    ],
+    tagPool: ['so sánh dịch vụ', 'hàng lẻ', 'hàng ghép', 'bao chuyến', 'đánh giá nhà xe'],
+    imageKeyword: 'cargo truck|semi truck|sleeper bus|coach bus',
+    titleIndustrySuffix: () => '',
+  },
+  'Sự kiện cửa hàng': {
+    titleCores: [
+      'Khai trương kho hàng mới tại Đồng Nai',
+      'Mở thêm tuyến xe Đồng Nai – Quảng Ngãi',
+      'Lịch xe chạy dịp Tết Nguyên Đán',
+      'Tăng chuyến tuyến Đồng Nai – Đà Lạt mùa nông sản',
+      'Tri ân khách hàng gửi hàng thân thiết',
+    ],
+    angles: ['thông báo chính thức', 'quý khách lưu ý', 'nhiều ưu đãi đi kèm', 'từ tuần này', 'phục vụ nhu cầu cao điểm'],
+    introFragments: [
+      'Để phục vụ nhu cầu gửi hàng ngày càng tăng, nhà xe tiếp tục mở rộng hệ thống kho bãi và tăng cường đội xe trên các tuyến chính.',
+      'Xin gửi tới quý khách hàng thông báo về hoạt động mới của nhà xe trong thời gian tới.',
+      'Cảm ơn quý khách đã tin tưởng gửi gắm hàng hóa — đây là thông tin quan trọng để quý khách chủ động sắp xếp lịch gửi hàng.',
+    ],
+    contextHeading: 'Thông tin chi tiết',
+    contextFragments: [
+      'Kho hàng mới có mặt bằng rộng, có xe nâng và mái che, giúp việc bốc xếp nhanh hơn và hàng hóa được bảo quản tốt hơn khi chờ lên xe.',
+      'Các tuyến đi Nha Trang, Quảng Ngãi, Đà Lạt và Tây Nguyên được tăng thêm chuyến mỗi ngày trong mùa cao điểm.',
+      'Lịch nhận hàng và lịch xe chạy dịp lễ, Tết được công bố sớm để khách hàng kịp gửi hàng trước khi nghỉ.',
+    ],
+    detailHeading: 'Quý khách cần lưu ý',
+    detailFragments: [
+      'Nên gửi hàng sớm 3 – 5 ngày trước kỳ nghỉ lễ để hàng kịp đến nơi trước khi người nhận nghỉ.',
+      'Các chuyến bao xe dịp cao điểm cần đặt trước và đặt cọc để giữ xe.',
+      'Thời gian giao hàng có thể kéo dài thêm vài giờ vào ngày cao điểm do lưu lượng xe trên cao tốc tăng.',
+    ],
+    bulletFragments: [
+      'kho mới có xe nâng, mái che',
+      'tăng chuyến trên các tuyến chính',
+      'công bố lịch xe dịp lễ, Tết sớm',
+      'hỗ trợ lấy hàng tận nơi trong ngày cao điểm',
+      'tổng đài hoạt động xuyên suốt cả ngày nghỉ',
+    ],
+    bulletsHeading: 'Điểm nổi bật',
+    adviceHeading: 'Để việc gửi hàng thuận lợi',
+    adviceFragments: [
+      'đặt lịch gửi hàng qua hotline hoặc Zalo trước khi mang hàng tới kho',
+      'kiểm tra lịch xe chạy của tuyến cần gửi trên fanpage',
+      'chuẩn bị sẵn thông tin người nhận để làm phiếu gửi nhanh hơn',
+    ],
+    faq: [
+      { q: 'Dịp Tết nhà xe nghỉ từ ngày nào?', a: 'Lịch nghỉ cụ thể được thông báo trên fanpage và tại kho trước ít nhất 2 tuần, các tuyến chính vẫn chạy đến sát Tết.' },
+      { q: 'Kho mới có nhận gửi hàng cồng kềnh không?', a: 'Có. Kho mới có xe nâng và khu vực riêng cho hàng cồng kềnh, hàng pallet.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Mỗi bước mở rộng đều nhằm mục tiêu giao hàng nhanh hơn, an toàn hơn cho quý khách.',
+      'Rất mong tiếp tục nhận được sự tin tưởng và đồng hành của quý khách trên mọi tuyến xe.',
+      'Mọi góp ý xin gửi về tổng đài để chúng tôi phục vụ ngày càng tốt hơn.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để đặt lịch gửi hàng ngay hôm nay.',
+      'Theo dõi fanpage để cập nhật lịch xe và thông báo mới nhất.',
+      'Ghé kho mới tại Đồng Nai để được tư vấn trực tiếp.',
+    ],
+    tagPool: ['thông báo', 'lịch xe chạy', 'kho hàng đồng nai', 'tuyến mới', 'tri ân khách hàng'],
+    imageKeyword: 'freight truck|delivery truck|intercity bus|luxury bus',
+    titleIndustrySuffix: () => '',
+  },
+}
+
+/**
+ * Ngành Thực phẩm bổ sung - Sức khỏe trẻ em — nội dung dựa trên giới thiệu thương hiệu Cellrokids (hệ sinh thái dược phẩm
+ * Cellromax Science, Hàn Quốc; sản phẩm có bằng sáng chế, chứng nhận chuẩn quốc tế; nói không với nguyên liệu kém chất lượng).
+ * KHÔNG tự bịa công dụng/chỉ số cụ thể; mọi CTA kèm câu khuyến cáo bắt buộc của thực phẩm bảo vệ sức khỏe.
+ */
+const KIDS_DISCLAIMER = ' <em>Sản phẩm này không phải là thuốc và không có tác dụng thay thế thuốc chữa bệnh.</em>'
+const KIDS_CTA = (texts: string[]) => texts.map((t) => t + KIDS_DISCLAIMER)
+
+INDUSTRY_TOPIC_OVERRIDES['Thực phẩm bổ sung - Sức khỏe trẻ em'] = {
+  'Tin tức ngành hàng': {
+    titleCores: [
+      'Cellrokids — thương hiệu chăm sóc sức khỏe trẻ em từ Hàn Quốc',
+      'Hệ sinh thái dược phẩm Cellromax Science và dòng sản phẩm Cellrokids',
+      'Xu hướng chọn sản phẩm bổ sung có nguồn gốc rõ ràng cho trẻ',
+      'Tiêu chuẩn quốc tế trong sản xuất sản phẩm cho trẻ em',
+      'Vì sao phụ huynh Việt quan tâm sản phẩm sức khỏe trẻ em Hàn Quốc',
+    ],
+    angles: ['có gì đặc biệt', 'phụ huynh nên biết', 'qua góc nhìn chuyên gia', 'đáng chú ý hiện nay', 'những điều cần hiểu đúng'],
+    introFragments: [
+      'Cellrokids được biết đến là thương hiệu phát triển từ hệ sinh thái dược phẩm Cellromax Science — đơn vị tiên phong tại Hàn Quốc trong nghiên cứu, phát triển và sản xuất các sản phẩm chất lượng cao vì sức khỏe trẻ em.',
+      'Trong bối cảnh phụ huynh ngày càng kỹ tính khi chọn sản phẩm cho con, những thương hiệu có nền tảng nghiên cứu bài bản và nguồn gốc minh bạch đang được quan tâm nhiều hơn.',
+      'Với mong muốn bảo vệ và cải thiện sức khỏe của trẻ, Cellrokids theo đuổi triết lý nói không với nguyên liệu chất lượng thấp và giá thành rẻ.',
+    ],
+    contextHeading: 'Về thương hiệu Cellrokids',
+    contextFragments: [
+      'Cellrokids thuộc hệ sinh thái dược phẩm Cellromax Science của Hàn Quốc, nơi các sản phẩm được nghiên cứu, phát triển và sản xuất trong cùng một quy trình khép kín.',
+      'Các sản phẩm của thương hiệu được cấp bằng sáng chế và giấy chứng nhận đạt chuẩn quốc tế — điểm mà nhiều phụ huynh xem là thước đo quan trọng khi lựa chọn.',
+      'Đội ngũ lãnh đạo và chuyên gia nghiên cứu của công ty đặt chất lượng nguyên liệu lên hàng đầu, không đánh đổi chất lượng để hạ giá thành.',
+    ],
+    detailHeading: 'Điều làm nên sự khác biệt',
+    detailFragments: [
+      'Nền tảng nghiên cứu dược phẩm giúp mỗi sản phẩm được phát triển dựa trên cơ sở khoa học thay vì chạy theo xu hướng thị trường.',
+      'Nguyên liệu được chọn lọc kỹ lưỡng — đội ngũ chuyên gia thẳng thắn nói không với nguyên liệu chất lượng thấp, giá rẻ.',
+      'Bằng sáng chế và chứng nhận đạt chuẩn quốc tế là minh chứng cho quy trình sản xuất được kiểm soát chặt chẽ.',
+      'Sản phẩm được thiết kế riêng cho trẻ em, chú trọng sự an toàn và phù hợp với từng độ tuổi theo hướng dẫn trên bao bì.',
+    ],
+    bulletFragments: [
+      'thương hiệu thuộc hệ sinh thái Cellromax Science, Hàn Quốc',
+      'tiên phong nghiên cứu sản phẩm vì sức khỏe trẻ em',
+      'sản phẩm có bằng sáng chế và chứng nhận chuẩn quốc tế',
+      'nói không với nguyên liệu kém chất lượng, giá rẻ',
+      'đội ngũ chuyên gia nghiên cứu đồng hành phát triển sản phẩm',
+    ],
+    bulletsHeading: 'Tóm tắt nhanh',
+    adviceHeading: 'Phụ huynh nên lưu ý gì?',
+    adviceFragments: [
+      'chọn sản phẩm chính hãng, có tem nhãn và thông tin nhà sản xuất rõ ràng',
+      'đọc kỹ hướng dẫn sử dụng, dùng đúng độ tuổi và liều lượng ghi trên bao bì',
+      'tham khảo ý kiến bác sĩ hoặc chuyên gia dinh dưỡng nếu trẻ có vấn đề sức khỏe đặc biệt',
+    ],
+    faq: [
+      { q: 'Cellrokids là thương hiệu của nước nào?', a: 'Cellrokids là thương hiệu phát triển từ hệ sinh thái dược phẩm Cellromax Science của Hàn Quốc.' },
+      { q: 'Làm sao để mua đúng hàng chính hãng?', a: 'Nên mua tại cửa hàng, đại lý phân phối chính thức và kiểm tra tem nhãn, hạn sử dụng trước khi mua.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chọn sản phẩm cho con là chọn sự an tâm — và nguồn gốc rõ ràng, chất lượng nguyên liệu luôn là điều nên đặt lên đầu.',
+      'Theo dõi chuyên mục để cập nhật thêm thông tin về chăm sóc sức khỏe trẻ em.',
+      'Mọi thắc mắc về sản phẩm, đội ngũ tư vấn luôn sẵn sàng hỗ trợ phụ huynh.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Liên hệ hotline để được tư vấn sản phẩm phù hợp với độ tuổi của bé.',
+      'Ghé cửa hàng để được tư vấn trực tiếp về các sản phẩm Cellrokids chính hãng.',
+      'Theo dõi fanpage để cập nhật kiến thức chăm sóc sức khỏe trẻ em.',
+    ]),
+    tagPool: ['cellrokids', 'sức khỏe trẻ em', 'hàn quốc', 'cellromax science', 'mẹ và bé'],
+    imageKeyword: 'pharmaceutical laboratory|science laboratory|healthy children|happy children',
+    titleImageKeywords: [
+      'vitamin bottle|supplement bottle|happy children',
+      'pharmaceutical laboratory|laboratory research|research scientist',
+      'pharmacy shelves|pharmacy store|vitamin bottle',
+      'laboratory research|laboratory equipment|research scientist',
+      'mother child|parent child|family breakfast',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Mẹo hay & Kinh nghiệm': {
+    titleCores: [
+      'Cách chọn sản phẩm bổ sung an toàn cho trẻ',
+      'Kinh nghiệm đọc nhãn sản phẩm dành cho trẻ em',
+      'Xây dựng thói quen ăn uống lành mạnh cho bé',
+      'Chăm sóc sức khỏe cho trẻ khi giao mùa',
+      'Bổ sung dinh dưỡng cho trẻ biếng ăn',
+    ],
+    angles: ['bố mẹ nên biết', 'theo lời khuyên chuyên gia', 'đơn giản mà hiệu quả', 'cho phụ huynh lần đầu', 'tránh những sai lầm thường gặp'],
+    introFragments: [
+      'Sức khỏe của trẻ được xây dựng từ những thói quen nhỏ mỗi ngày: ăn uống đủ chất, ngủ đủ giấc, vận động và một tinh thần vui vẻ.',
+      'Trước rất nhiều sản phẩm dành cho trẻ trên thị trường, không ít phụ huynh băn khoăn nên chọn thế nào cho an toàn và phù hợp.',
+      'Bài viết tổng hợp những kinh nghiệm thực tế giúp bố mẹ chăm sóc sức khỏe cho con một cách khoa học hơn.',
+    ],
+    contextHeading: 'Vì sao cần chọn lựa kỹ?',
+    contextFragments: [
+      'Cơ thể trẻ đang phát triển nên nhạy cảm hơn người lớn — nguyên liệu kém chất lượng hay dùng sai cách đều có thể ảnh hưởng không tốt.',
+      'Sản phẩm bổ sung chỉ hỗ trợ, không thay thế được bữa ăn đa dạng và chế độ sinh hoạt lành mạnh hằng ngày.',
+      'Mỗi độ tuổi có nhu cầu dinh dưỡng khác nhau, vì vậy cần chọn sản phẩm đúng đối tượng ghi trên bao bì.',
+    ],
+    detailHeading: 'Kinh nghiệm thực tế',
+    detailFragments: [
+      'Ưu tiên thương hiệu có nền tảng nghiên cứu rõ ràng, có bằng sáng chế hoặc chứng nhận đạt chuẩn quốc tế như các sản phẩm Cellrokids.',
+      'Đọc kỹ bảng thành phần, độ tuổi sử dụng, hạn sử dụng và thông tin nhà sản xuất trước khi mua.',
+      'Duy trì bữa ăn đủ 4 nhóm chất, nhiều rau xanh và trái cây; hạn chế đồ ngọt, nước có gas và đồ ăn nhanh.',
+      'Cho trẻ ngủ đủ giấc, vận động ngoài trời mỗi ngày — nền tảng quan trọng không sản phẩm nào thay thế được.',
+    ],
+    bulletFragments: [
+      'chọn sản phẩm chính hãng, nguồn gốc rõ ràng',
+      'dùng đúng độ tuổi, đúng liều theo hướng dẫn',
+      'kết hợp chế độ ăn đa dạng, đủ chất',
+      'theo dõi phản ứng của trẻ trong thời gian đầu sử dụng',
+      'hỏi ý kiến bác sĩ khi trẻ có bệnh lý',
+    ],
+    bulletsHeading: 'Ghi nhớ nhanh',
+    adviceHeading: 'Những sai lầm nên tránh',
+    adviceFragments: [
+      'tự ý tăng liều với mong muốn con khỏe nhanh hơn',
+      'dùng cùng lúc quá nhiều loại sản phẩm bổ sung khác nhau',
+      'mua sản phẩm trôi nổi, giá rẻ bất thường, không rõ nguồn gốc',
+    ],
+    faq: [
+      { q: 'Trẻ ăn uống đầy đủ có cần dùng thêm sản phẩm bổ sung không?', a: 'Không phải trẻ nào cũng cần. Phụ huynh nên theo dõi thể trạng của con và tham khảo ý kiến bác sĩ trước khi bổ sung.' },
+      { q: 'Nên cho trẻ dùng sản phẩm bổ sung vào lúc nào?', a: 'Thời điểm dùng tùy từng sản phẩm, phụ huynh nên làm theo hướng dẫn in trên bao bì.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chăm con khỏe không khó nếu bố mẹ kiên trì với những thói quen đúng và chọn sản phẩm có nguồn gốc rõ ràng.',
+      'Hy vọng những kinh nghiệm trên giúp hành trình chăm con của bạn nhẹ nhàng hơn.',
+      'Mỗi đứa trẻ là một cá thể riêng — hãy lắng nghe và quan sát con thật kỹ.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Liên hệ hotline để được tư vấn chế độ chăm sóc phù hợp cho bé.',
+      'Ghé cửa hàng để được tư vấn trực tiếp về sản phẩm Cellrokids.',
+      'Theo dõi fanpage để nhận thêm kinh nghiệm chăm con mỗi tuần.',
+    ]),
+    tagPool: ['kinh nghiệm chăm con', 'dinh dưỡng cho trẻ', 'sức khỏe trẻ em', 'cellrokids', 'mẹ và bé'],
+    imageKeyword: 'family breakfast|mother child|healthy children|kids playing',
+    titleImageKeywords: [
+      'pharmacy shelves|pharmacy store|drugstore',
+      'vitamin bottle|pill bottle|supplement bottle',
+      'children eating vegetables|kids healthy food|family breakfast',
+      'sick child|child fever|child blanket',
+      'toddler eating|child eating|kid eating',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Hướng dẫn sử dụng': {
+    titleCores: [
+      'Hướng dẫn cho trẻ dùng sản phẩm bổ sung đúng cách',
+      'Hướng dẫn bảo quản sản phẩm dành cho trẻ em',
+      'Hướng dẫn kiểm tra hàng chính hãng Cellrokids',
+      'Hướng dẫn chọn sản phẩm theo độ tuổi của bé',
+      'Hướng dẫn giúp trẻ hợp tác khi dùng sản phẩm bổ sung',
+    ],
+    angles: ['chi tiết từng bước', 'đơn giản cho bố mẹ', 'để đạt hiệu quả tốt nhất', 'an toàn cho bé', 'mà phụ huynh hay bỏ qua'],
+    introFragments: [
+      'Dùng đúng cách là yếu tố quan trọng để sản phẩm phát huy tác dụng và an toàn cho trẻ.',
+      'Nhiều phụ huynh chỉ quan tâm chọn sản phẩm tốt mà bỏ qua cách dùng và bảo quản — điều ảnh hưởng không nhỏ tới chất lượng sản phẩm.',
+      'Bài viết hướng dẫn những điều cơ bản bố mẹ cần nắm khi cho trẻ sử dụng các sản phẩm chăm sóc sức khỏe.',
+    ],
+    contextHeading: 'Trước khi cho trẻ sử dụng',
+    contextFragments: [
+      'Đọc kỹ hướng dẫn sử dụng, đối tượng sử dụng và lưu ý in trên bao bì sản phẩm.',
+      'Kiểm tra hạn sử dụng, tem nhãn và tình trạng bao bì còn nguyên vẹn.',
+      'Nếu trẻ đang dùng thuốc hoặc có bệnh lý, hỏi ý kiến bác sĩ trước khi bổ sung thêm sản phẩm.',
+    ],
+    detailHeading: 'Cách sử dụng và bảo quản',
+    detailFragments: [
+      'Dùng đúng liều lượng theo độ tuổi ghi trên bao bì, không tự ý tăng hoặc giảm liều.',
+      'Duy trì đều đặn theo hướng dẫn thay vì dùng ngắt quãng, khi nhớ khi quên.',
+      'Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp; đậy kín nắp sau mỗi lần dùng.',
+      'Để sản phẩm xa tầm tay trẻ em, người lớn nên trực tiếp cho trẻ dùng theo đúng liều.',
+    ],
+    bulletFragments: [
+      'đọc kỹ hướng dẫn trước khi dùng',
+      'dùng đúng liều theo độ tuổi',
+      'bảo quản nơi khô ráo, thoáng mát',
+      'để xa tầm tay trẻ em',
+      'ngưng dùng và hỏi bác sĩ nếu trẻ có biểu hiện bất thường',
+    ],
+    bulletsHeading: 'Lưu ý quan trọng',
+    adviceHeading: 'Mẹo giúp bé hợp tác',
+    adviceFragments: [
+      'cho bé dùng vào một khung giờ cố định mỗi ngày để tạo thói quen',
+      'khen ngợi, động viên thay vì ép buộc khi bé chưa quen',
+      'giải thích đơn giản cho bé hiểu vì sao cần chăm sóc sức khỏe mỗi ngày',
+    ],
+    faq: [
+      { q: 'Quên một lần dùng thì có cần dùng bù không?', a: 'Không nên dùng gấp đôi liều. Phụ huynh chỉ cần tiếp tục dùng theo lịch bình thường ở lần kế tiếp.' },
+      { q: 'Làm sao nhận biết sản phẩm Cellrokids chính hãng?', a: 'Mua tại điểm bán chính thức, kiểm tra tem nhãn phụ tiếng Việt, thông tin nhà phân phối và hạn sử dụng trên bao bì.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Dùng đúng cách, bảo quản đúng chuẩn là cách đơn giản nhất để bảo vệ sức khỏe của bé.',
+      'Lưu lại bài hướng dẫn để tiện tra cứu khi cần.',
+      'Nếu còn thắc mắc, phụ huynh đừng ngần ngại liên hệ để được tư vấn.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Liên hệ hotline để được hướng dẫn sử dụng chi tiết.',
+      'Nhắn tin fanpage để được tư vấn sản phẩm theo độ tuổi của bé.',
+      'Ghé cửa hàng để kiểm tra và mua sản phẩm Cellrokids chính hãng.',
+    ]),
+    tagPool: ['hướng dẫn sử dụng', 'cellrokids', 'bảo quản sản phẩm', 'hàng chính hãng', 'sức khỏe trẻ em'],
+    imageKeyword: 'mother child|parent child|healthy children|happy children',
+    titleImageKeywords: [
+      'pill bottle|vitamin bottle|mother child',
+      'medicine cabinet|pill bottles|vitamin bottles',
+      'pharmacy shelves|pharmacy store|drugstore',
+      'siblings|toddler|happy children',
+      'mother child|parent child|smiling child',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Khuyến mãi': {
+    titleCores: [
+      'Ưu đãi sản phẩm Cellrokids chính hãng',
+      'Tuần lễ chăm sóc sức khỏe cho bé',
+      'Quà tặng cho mẹ khi mua sản phẩm Cellrokids',
+      'Ưu đãi mùa tựu trường cho bé',
+      'Tri ân khách hàng thân thiết của Cellrokids',
+    ],
+    angles: ['— số lượng có hạn', 'trong tháng này', 'dành cho khách hàng mới', 'khi mua combo', 'tại cửa hàng và online'],
+    introFragments: [
+      'Nhằm đồng hành cùng các gia đình trong hành trình chăm sóc sức khỏe cho con, cửa hàng triển khai chương trình ưu đãi dành cho các sản phẩm Cellrokids chính hãng.',
+      'Đây là dịp để phụ huynh sở hữu sản phẩm chất lượng từ hệ sinh thái dược phẩm Cellromax Science Hàn Quốc với chi phí tiết kiệm hơn.',
+      'Chương trình áp dụng cho toàn bộ sản phẩm Cellrokids đang có tại cửa hàng trong thời gian diễn ra ưu đãi.',
+    ],
+    contextHeading: 'Vì sao nên tận dụng chương trình?',
+    contextFragments: [
+      'Cellrokids là thương hiệu phát triển từ Cellromax Science — đơn vị tiên phong tại Hàn Quốc về sản phẩm vì sức khỏe trẻ em.',
+      'Sản phẩm có bằng sáng chế, chứng nhận đạt chuẩn quốc tế và cam kết không dùng nguyên liệu chất lượng thấp.',
+      'Mua trong chương trình vẫn đảm bảo hàng chính hãng, đầy đủ tem nhãn và hạn sử dụng dài.',
+    ],
+    detailHeading: 'Cách nhận ưu đãi',
+    detailFragments: [
+      'Mua trực tiếp tại cửa hàng hoặc đặt hàng online trên website, ưu đãi được áp dụng tự động vào đơn hàng.',
+      'Khách hàng mua combo nhiều sản phẩm sẽ nhận thêm quà tặng dành cho mẹ và bé.',
+      'Số lượng quà tặng có hạn, ưu tiên các đơn hàng đặt sớm.',
+    ],
+    bulletFragments: [
+      'cam kết hàng chính hãng Cellrokids',
+      'giao hàng nhanh, đóng gói cẩn thận',
+      'tư vấn miễn phí theo độ tuổi của bé',
+      'quà tặng kèm cho đơn combo',
+      'hỗ trợ đổi trả nếu sản phẩm lỗi từ nhà sản xuất',
+    ],
+    bulletsHeading: 'Quyền lợi khi mua hàng',
+    adviceHeading: 'Lưu ý khi tham gia',
+    adviceFragments: [
+      'ưu đãi không áp dụng đồng thời với các chương trình khác',
+      'chọn đúng sản phẩm theo độ tuổi của bé, cần thì nhờ nhân viên tư vấn',
+      'kiểm tra sản phẩm khi nhận hàng',
+    ],
+    faq: [
+      { q: 'Mua online có được ưu đãi như tại cửa hàng không?', a: 'Có, chương trình áp dụng cho cả đơn hàng tại cửa hàng và đơn đặt online.' },
+      { q: 'Sản phẩm trong chương trình có phải hàng cận date không?', a: 'Không. Sản phẩm trong chương trình là hàng chính hãng, hạn sử dụng còn dài.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chăm sóc sức khỏe cho con với chi phí hợp lý hơn — đừng bỏ lỡ chương trình lần này.',
+      'Cảm ơn quý phụ huynh đã tin chọn Cellrokids đồng hành cùng sức khỏe của bé.',
+      'Ưu đãi có hạn, đặt hàng sớm để nhận đủ quà tặng.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Đặt hàng ngay trên website để nhận ưu đãi.',
+      'Liên hệ hotline để được tư vấn và giữ quà tặng.',
+      'Ghé cửa hàng để mua sản phẩm Cellrokids với giá ưu đãi.',
+    ]),
+    tagPool: ['khuyến mãi', 'cellrokids', 'ưu đãi mẹ và bé', 'hàng chính hãng', 'quà tặng'],
+    imageKeyword: 'happy children|smiling child|mother child|kids playing',
+    titleImageKeywords: [
+      'vitamin bottle|supplement bottle|gift box',
+      'happy children|healthy children|kids playing',
+      'gift box|gift boxes|wrapped gift',
+      'kids playing|happy children|smiling child',
+      'gift box|wrapped gift|mother child',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Đánh giá sản phẩm': {
+    titleCores: [
+      'Vì sao phụ huynh tin chọn Cellrokids',
+      'Đánh giá thương hiệu Cellrokids',
+      'Cellrokids và tiêu chí chọn sản phẩm cho trẻ của phụ huynh',
+      'Cảm nhận của phụ huynh sau thời gian dùng Cellrokids cho con',
+      'Cellrokids có gì khác so với sản phẩm trôi nổi',
+    ],
+    angles: ['qua trải nghiệm thực tế', 'ưu điểm nổi bật', 'những điều cần biết', 'có đáng tin không', 'qua các tiêu chí quan trọng'],
+    introFragments: [
+      'Khi chọn sản phẩm cho con, điều phụ huynh quan tâm nhất là an toàn, nguồn gốc rõ ràng và chất lượng thật sự.',
+      'Bài viết điểm lại những tiêu chí giúp Cellrokids trở thành lựa chọn của nhiều gia đình trong việc chăm sóc sức khỏe trẻ em.',
+      'Thay vì chỉ nhìn vào giá, phụ huynh ngày càng chú ý đến nền tảng nghiên cứu và nguyên liệu phía sau mỗi sản phẩm.',
+    ],
+    contextHeading: 'Tiêu chí đánh giá',
+    contextFragments: [
+      'Nguồn gốc: thương hiệu thuộc hệ sinh thái dược phẩm Cellromax Science, Hàn Quốc.',
+      'Chất lượng: sản phẩm được cấp bằng sáng chế và giấy chứng nhận đạt chuẩn quốc tế.',
+      'Nguyên liệu: cam kết nói không với nguyên liệu chất lượng thấp và giá thành rẻ.',
+    ],
+    detailHeading: 'Nhận xét chi tiết',
+    detailFragments: [
+      'Điểm cộng lớn nhất là nền tảng nghiên cứu dược phẩm — sản phẩm được phát triển bởi đội ngũ chuyên gia, không phải hàng gia công đại trà.',
+      'Bằng sáng chế và chứng nhận quốc tế giúp phụ huynh có căn cứ rõ ràng để yên tâm, thay vì chỉ dựa vào lời quảng cáo.',
+      'Triết lý không đánh đổi chất lượng lấy giá rẻ khiến giá sản phẩm có thể cao hơn hàng trôi nổi, nhưng đổi lại là sự an tâm về nguyên liệu.',
+      'Bao bì, hướng dẫn sử dụng rõ ràng theo độ tuổi giúp bố mẹ dễ dàng cho con dùng đúng cách.',
+    ],
+    bulletFragments: [
+      'nguồn gốc Hàn Quốc minh bạch',
+      'có bằng sáng chế, chứng nhận quốc tế',
+      'nguyên liệu được chọn lọc kỹ',
+      'hướng dẫn sử dụng rõ ràng theo độ tuổi',
+      'giá phản ánh đúng chất lượng',
+    ],
+    bulletsHeading: 'Tóm tắt đánh giá',
+    adviceHeading: 'Lời khuyên cho phụ huynh',
+    adviceFragments: [
+      'chọn sản phẩm phù hợp nhu cầu và độ tuổi thực tế của con',
+      'mua tại điểm bán chính thức để đảm bảo hàng chính hãng',
+      'kết hợp sản phẩm với chế độ ăn uống và sinh hoạt lành mạnh',
+    ],
+    faq: [
+      { q: 'Hiệu quả có giống nhau ở mọi trẻ không?', a: 'Không. Hiệu quả có thể khác nhau tùy thể trạng và chế độ sinh hoạt của từng trẻ.' },
+      { q: 'Giá Cellrokids có cao hơn sản phẩm khác không?', a: 'Có thể cao hơn hàng trôi nổi do thương hiệu không dùng nguyên liệu giá rẻ, chất lượng thấp.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Nguồn gốc rõ ràng, nghiên cứu bài bản và nguyên liệu chất lượng là những lý do khiến Cellrokids được nhiều phụ huynh tin chọn.',
+      'Hy vọng bài đánh giá giúp bố mẹ có thêm thông tin trước khi chọn sản phẩm cho con.',
+      'Mỗi lựa chọn cho con đều đáng được cân nhắc kỹ — và chất lượng luôn nên là ưu tiên số một.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Liên hệ hotline để được tư vấn sản phẩm phù hợp cho bé.',
+      'Ghé cửa hàng để xem trực tiếp các sản phẩm Cellrokids.',
+      'Theo dõi fanpage để đọc thêm chia sẻ của các phụ huynh.',
+    ]),
+    tagPool: ['đánh giá', 'cellrokids', 'review sản phẩm cho bé', 'sức khỏe trẻ em', 'hàn quốc'],
+    imageKeyword: 'pediatrician child|doctor child|mother child|healthy children',
+    titleImageKeywords: [
+      'mother child|parent child|smiling child',
+      'vitamin bottle|supplement bottle|laboratory research',
+      'pharmacy shelves|vitamin bottle|pill bottle',
+      'happy children|smiling child|mother child',
+      'laboratory research|pharmaceutical laboratory|pill bottle',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Sự kiện cửa hàng': {
+    titleCores: [
+      'Hội thảo chăm sóc sức khỏe trẻ em cùng chuyên gia',
+      'Ra mắt sản phẩm mới của Cellrokids',
+      'Ngày hội gia đình khỏe cùng Cellrokids',
+      'Chương trình tư vấn dinh dưỡng miễn phí cho bé',
+      'Cellrokids đồng hành cùng phụ huynh mùa tựu trường',
+    ],
+    angles: ['thông báo chính thức', 'mời quý phụ huynh tham dự', 'nhiều quà tặng hấp dẫn', 'cuối tuần này', 'số chỗ có hạn'],
+    introFragments: [
+      'Với mong muốn bảo vệ và cải thiện sức khỏe của trẻ, Cellrokids tổ chức chương trình dành riêng cho các gia đình có con nhỏ.',
+      'Đây là dịp để phụ huynh gặp gỡ, trao đổi trực tiếp với chuyên gia về chăm sóc sức khỏe và dinh dưỡng cho trẻ.',
+      'Kính mời quý phụ huynh cùng các bé tham gia chương trình với nhiều hoạt động bổ ích và quà tặng.',
+    ],
+    contextHeading: 'Nội dung chương trình',
+    contextFragments: [
+      'Chuyên gia chia sẻ kiến thức chăm sóc sức khỏe trẻ em theo từng độ tuổi và giải đáp thắc mắc của phụ huynh.',
+      'Giới thiệu về hệ sinh thái dược phẩm Cellromax Science và quy trình nghiên cứu, sản xuất sản phẩm Cellrokids.',
+      'Khu vui chơi dành cho các bé trong lúc bố mẹ tham gia tư vấn.',
+    ],
+    detailHeading: 'Thông tin tham dự',
+    detailFragments: [
+      'Phụ huynh đăng ký trước qua hotline hoặc fanpage để được giữ chỗ.',
+      'Mỗi gia đình tham dự nhận quà tặng từ Cellrokids, số lượng có hạn.',
+      'Chương trình miễn phí tham dự, không bắt buộc mua hàng.',
+    ],
+    bulletFragments: [
+      'trao đổi trực tiếp với chuyên gia',
+      'tư vấn miễn phí theo độ tuổi của bé',
+      'quà tặng cho mỗi gia đình',
+      'ưu đãi riêng cho khách tham dự',
+      'khu vui chơi cho bé',
+    ],
+    bulletsHeading: 'Điểm nổi bật',
+    adviceHeading: 'Để tham gia thuận lợi',
+    adviceFragments: [
+      'đăng ký sớm vì số chỗ có hạn',
+      'chuẩn bị trước các câu hỏi về sức khỏe của bé để được giải đáp',
+      'đến sớm 15 phút để check-in và nhận quà',
+    ],
+    faq: [
+      { q: 'Tham dự có mất phí không?', a: 'Chương trình hoàn toàn miễn phí, phụ huynh chỉ cần đăng ký trước để giữ chỗ.' },
+      { q: 'Có thể đưa bé đi cùng không?', a: 'Có. Chương trình có khu vui chơi riêng cho các bé.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Rất mong được gặp quý phụ huynh và các bé tại chương trình.',
+      'Cellrokids mong muốn đồng hành cùng các gia đình trên hành trình nuôi dạy con khỏe mạnh.',
+      'Cảm ơn quý phụ huynh đã luôn quan tâm và tin tưởng.',
+    ],
+    ctaFragments: KIDS_CTA([
+      'Đăng ký tham dự ngay qua hotline.',
+      'Nhắn tin fanpage để giữ chỗ cho gia đình bạn.',
+      'Theo dõi fanpage để cập nhật lịch chương trình mới nhất.',
+    ]),
+    tagPool: ['sự kiện', 'cellrokids', 'hội thảo sức khỏe trẻ em', 'mẹ và bé', 'tư vấn dinh dưỡng'],
+    imageKeyword: 'happy children|kids playing|family breakfast|mother child',
+    titleImageKeywords: [
+      'health seminar|seminar audience|conference audience',
+      'vitamin bottle|supplement bottle|gift box',
+      'family event|kids party|children party',
+      'pediatrician child|doctor child|children eating vegetables',
+      'kids playing|happy children|children party',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+}
+
+/**
+ * Ngành Thiết bị nhà bếp (bếp từ, hút mùi, lò, máy rửa bát, chậu vòi, lọc nước, gia dụng bếp, nồi chảo) — mỗi tiêu đề có ảnh
+ * riêng (titleImageKeywords) để ảnh khớp đúng thiết bị bài đang nói tới.
+ */
+INDUSTRY_TOPIC_OVERRIDES['Thiết bị nhà bếp'] = {
+  'Tin tức ngành hàng': {
+    titleCores: [
+      'Xu hướng bếp từ âm kính cho căn hộ hiện đại',
+      'Máy rửa bát ngày càng phổ biến trong gia đình Việt',
+      'Bếp liền khối: thiết bị âm tủ lên ngôi',
+      'Thiết bị bếp thông minh kết nối điện thoại',
+      'Nồi chiên không dầu và xu hướng nấu ăn ít dầu mỡ',
+    ],
+    angles: ['năm nay có gì mới', 'đáng chú ý nhất hiện nay', 'người tiêu dùng đang quan tâm', 'thay đổi ra sao', 'qua góc nhìn chuyên gia'],
+    introFragments: [
+      'Căn bếp ngày càng được đầu tư như một không gian sống chính, kéo theo nhu cầu thiết bị bếp vừa đẹp, vừa tiện, vừa tiết kiệm thời gian.',
+      'Từ bếp từ, máy hút mùi đến máy rửa bát, thiết bị nhà bếp đang thay đổi nhanh về công nghệ và thiết kế.',
+      'Người nội trợ hiện đại không chỉ cần nấu nhanh mà còn muốn căn bếp sạch sẽ, an toàn và dễ dọn dẹp.',
+    ],
+    contextHeading: 'Bối cảnh thị trường',
+    contextFragments: [
+      'Căn hộ chung cư diện tích vừa phải khiến thiết bị âm tủ, gọn gàng được ưu tiên hơn các thiết bị đặt rời cồng kềnh.',
+      'Bếp từ dần thay thế bếp gas nhờ an toàn hơn, nấu nhanh hơn và mặt kính dễ lau chùi.',
+      'Máy rửa bát, máy lọc nước từng được xem là xa xỉ nay đã trở thành thiết bị quen thuộc trong nhiều gia đình trẻ.',
+    ],
+    detailHeading: 'Những điểm mới đáng chú ý',
+    detailFragments: [
+      'Bếp từ đời mới có cảm ứng trượt, tự nhận diện vùng nấu theo kích thước nồi và khóa an toàn trẻ em.',
+      'Máy hút mùi chạy êm hơn, tự điều chỉnh tốc độ theo lượng khói và có chế độ hút sau khi nấu xong.',
+      'Lò nướng âm tủ tích hợp chức năng hấp, nướng đối lưu, giúp một thiết bị làm được nhiều món.',
+      'Máy rửa bát mini 6 – 8 bộ phù hợp gia đình ít người, lắp được cả ở bếp nhỏ.',
+    ],
+    bulletFragments: [
+      'bếp từ âm kính thay thế dần bếp gas',
+      'thiết bị âm tủ cho bếp gọn gàng',
+      'máy rửa bát mini cho gia đình nhỏ',
+      'máy hút mùi chạy êm, tự động',
+      'nồi chiên không dầu cho bữa ăn ít dầu mỡ',
+    ],
+    bulletsHeading: 'Tóm tắt nhanh',
+    adviceHeading: 'Người mua nên lưu ý gì?',
+    adviceFragments: [
+      'đo kích thước tủ bếp trước khi chọn thiết bị âm tủ',
+      'kiểm tra nguồn điện, aptomat riêng cho bếp từ và lò nướng công suất lớn',
+      'ưu tiên hàng chính hãng có bảo hành và lắp đặt tận nơi',
+    ],
+    faq: [
+      { q: 'Bếp từ có tốn điện không?', a: 'Bếp từ truyền nhiệt trực tiếp vào đáy nồi nên hiệu suất cao, nấu nhanh hơn và thường tiết kiệm hơn bếp hồng ngoại.' },
+      { q: 'Nhà ít người có nên mua máy rửa bát?', a: 'Có thể chọn dòng mini 6 – 8 bộ, vừa tiết kiệm nước vừa giải phóng thời gian rửa bát mỗi ngày.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Thiết bị bếp thay đổi nhanh, nhưng tiêu chí chọn mua vẫn là an toàn, bền và phù hợp không gian.',
+      'Theo dõi chuyên mục để cập nhật sớm các dòng thiết bị bếp mới.',
+      'Mọi thắc mắc về thiết bị, đội ngũ kỹ thuật luôn sẵn sàng tư vấn miễn phí.',
+    ],
+    ctaFragments: [
+      'Ghé showroom để trải nghiệm trực tiếp các thiết bị bếp mới nhất.',
+      'Gọi hotline để được tư vấn bộ thiết bị phù hợp với căn bếp nhà bạn.',
+      'Theo dõi fanpage để không bỏ lỡ tin tức và ưu đãi mới.',
+    ],
+    tagPool: ['tin tức nhà bếp', 'bếp từ', 'máy rửa bát', 'thiết bị âm tủ', 'xu hướng'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'induction cooktop|induction stove|induction hob -fire -flame',
+      'dishwasher|dish washer',
+      'built in oven|modern kitchen|kitchen interior -pizza -bread',
+      'modern kitchen|kitchen interior|kitchen appliances',
+      'air fryer|airfryer',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Mẹo hay & Kinh nghiệm': {
+    titleCores: [
+      'Cách chọn bếp từ phù hợp cho gia đình',
+      'Kinh nghiệm chọn máy hút mùi đúng công suất',
+      'Nên chọn chậu rửa bát inox hay chậu đá',
+      'Cách chọn máy lọc nước cho gia đình',
+      'Kinh nghiệm chọn bộ nồi, chảo dùng cho bếp từ',
+    ],
+    angles: ['không phải ai cũng biết', 'cho người mới sắm bếp', 'tránh mua sai', 'theo kinh nghiệm thợ lắp đặt', 'tiết kiệm mà vẫn bền'],
+    introFragments: [
+      'Sắm thiết bị bếp là khoản đầu tư dùng nhiều năm, chọn sai không chỉ tốn tiền mà còn bất tiện mỗi ngày nấu nướng.',
+      'Không ít gia đình mua thiết bị theo quảng cáo rồi mới phát hiện không vừa tủ bếp hoặc không hợp thói quen nấu.',
+      'Bài viết tổng hợp kinh nghiệm thực tế từ đội ngũ kỹ thuật lắp đặt thiết bị bếp nhiều năm.',
+    ],
+    contextHeading: 'Vì sao cần chọn kỹ?',
+    contextFragments: [
+      'Thiết bị âm tủ cần khớp kích thước khoét đá, khoét tủ — chọn sai phải sửa tủ rất tốn kém.',
+      'Công suất bếp từ, lò nướng cần phù hợp đường điện trong nhà để tránh nhảy aptomat.',
+      'Máy hút mùi quá yếu so với diện tích bếp sẽ không hút hết khói, dầu mỡ bám tủ bếp nhanh hơn.',
+    ],
+    detailHeading: 'Kinh nghiệm thực tế',
+    detailFragments: [
+      'Bếp từ đôi phù hợp gia đình 3 – 5 người; nhà nấu nhiều món cùng lúc nên chọn bếp ba hoặc bếp từ kết hợp hồng ngoại.',
+      'Máy hút mùi nên rộng bằng hoặc hơn mặt bếp, lắp cách mặt bếp khoảng 65 – 75 cm để hút hiệu quả.',
+      'Chậu inox bền, rẻ, dễ vệ sinh; chậu đá nhân tạo sang trọng, ít ồn nhưng giá cao hơn và cần tránh va đập mạnh.',
+      'Nồi, chảo dùng cho bếp từ phải có đáy nhiễm từ — thử bằng nam châm, hút chặt là dùng được.',
+    ],
+    bulletFragments: [
+      'đo kích thước tủ trước khi mua thiết bị âm',
+      'kiểm tra đường điện cho bếp từ, lò nướng',
+      'máy hút mùi rộng bằng hoặc hơn mặt bếp',
+      'nồi chảo phải có đáy nhiễm từ',
+      'chọn máy lọc nước theo nguồn nước nhà dùng',
+    ],
+    bulletsHeading: 'Ghi nhớ nhanh',
+    adviceHeading: 'Những sai lầm nên tránh',
+    adviceFragments: [
+      'chỉ nhìn công suất danh nghĩa mà bỏ qua nhu cầu thực tế',
+      'mua thiết bị trôi nổi, không có bảo hành chính hãng',
+      'tự lắp đặt thiết bị âm tủ khi chưa có kinh nghiệm',
+    ],
+    faq: [
+      { q: 'Nồi gang, nồi nhôm có dùng được bếp từ không?', a: 'Nồi gang dùng được. Nồi nhôm thường không nhiễm từ, trừ loại có đáy từ ghép thêm.' },
+      { q: 'Nhà dùng nước máy có cần máy lọc nước RO không?', a: 'Nước máy đã qua xử lý nhưng vẫn có thể còn cặn, clo. Máy lọc giúp nước uống trực tiếp an toàn và ngon hơn.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chọn đúng thiết bị ngay từ đầu giúp căn bếp dùng bền, đẹp và tiện lợi nhiều năm.',
+      'Hy vọng những kinh nghiệm trên giúp bạn sắm bếp tự tin hơn.',
+      'Cần tư vấn cấu hình bếp cụ thể, cứ liên hệ đội ngũ kỹ thuật để được hỗ trợ.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để được tư vấn thiết bị theo kích thước bếp nhà bạn.',
+      'Ghé showroom để xem và thử trực tiếp các thiết bị.',
+      'Theo dõi fanpage để nhận thêm mẹo hay cho căn bếp.',
+    ],
+    tagPool: ['kinh nghiệm chọn mua', 'bếp từ', 'máy hút mùi', 'chậu rửa', 'máy lọc nước'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'induction cooktop|induction stove|induction hob -fire -flame',
+      'range hood|exhaust hood|cooker hood -hoodie -hooded -lens -halloween',
+      'kitchen sink|stainless steel sink|double sink -bathroom -mirror',
+      'water purifier|water dispenser|water filter -soap -coffee -beauty -beverage -umbrella',
+      'cooking pot|frying pan|saucepan|pots pans -cutlery -flowerpot -poterie -teapot -coffee',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Hướng dẫn sử dụng': {
+    titleCores: [
+      'Hướng dẫn sử dụng bếp từ an toàn, bền lâu',
+      'Hướng dẫn vệ sinh máy hút mùi tại nhà',
+      'Hướng dẫn xếp bát đĩa vào máy rửa bát đúng cách',
+      'Hướng dẫn vệ sinh lò vi sóng nhanh sạch',
+      'Hướng dẫn thay lõi lọc máy lọc nước',
+    ],
+    angles: ['chi tiết từng bước', 'đơn giản tại nhà', 'chỉ trong 10 phút', 'để thiết bị bền hơn', 'mà nhiều người làm sai'],
+    introFragments: [
+      'Thiết bị bếp tốt đến đâu cũng cần dùng và vệ sinh đúng cách mới bền và an toàn.',
+      'Nhiều hư hỏng của thiết bị bếp đến từ thói quen sử dụng sai mà người dùng không để ý.',
+      'Bài viết hướng dẫn từng bước để bạn tự chăm sóc thiết bị tại nhà mà không cần gọi thợ.',
+    ],
+    contextHeading: 'Trước khi bắt đầu',
+    contextFragments: [
+      'Tắt nguồn và chờ thiết bị nguội hoàn toàn trước khi vệ sinh.',
+      'Chuẩn bị khăn mềm, nước ấm và dung dịch tẩy rửa trung tính — tránh dùng miếng cọ kim loại làm xước bề mặt.',
+      'Đọc lại sách hướng dẫn đi kèm để biết các bộ phận tháo rời được.',
+    ],
+    detailHeading: 'Cách thực hiện',
+    detailFragments: [
+      'Với bếp từ, đặt nồi đúng tâm vùng nấu, không kéo lê nồi trên mặt kính và lau sạch mặt bếp sau mỗi lần nấu.',
+      'Lưới lọc máy hút mùi nên tháo ra ngâm nước ấm pha nước rửa bát 15 – 20 phút rồi chải sạch, làm định kỳ mỗi tháng.',
+      'Xếp bát đĩa trong máy rửa bát úp mặt bẩn về phía tay phun, không xếp chồng khít lên nhau; cặn thức ăn lớn nên gạt bỏ trước.',
+      'Lò vi sóng có thể làm sạch bằng cách hâm nóng một bát nước pha chanh vài phút cho hơi nước làm mềm vết bẩn rồi lau.',
+    ],
+    bulletFragments: [
+      'luôn ngắt nguồn trước khi vệ sinh',
+      'không dùng miếng cọ kim loại',
+      'vệ sinh lưới lọc hút mùi mỗi tháng',
+      'thay lõi lọc nước đúng định kỳ',
+      'không để kim loại vào lò vi sóng',
+    ],
+    bulletsHeading: 'Lưu ý quan trọng',
+    adviceHeading: 'Mẹo để thiết bị bền hơn',
+    adviceFragments: [
+      'lau khô thiết bị sau khi vệ sinh, tránh để đọng nước',
+      'dùng ổn áp hoặc aptomat riêng cho thiết bị công suất lớn',
+      'bảo dưỡng định kỳ tại trung tâm bảo hành chính hãng',
+    ],
+    faq: [
+      { q: 'Mặt kính bếp từ bị ố vàng phải làm sao?', a: 'Dùng dung dịch chuyên dụng cho mặt kính bếp hoặc giấm pha loãng, lau bằng khăn mềm khi bếp đã nguội.' },
+      { q: 'Bao lâu thì thay lõi lọc máy lọc nước?', a: 'Tùy từng cấp lọc và chất lượng nước, thường từ 3 đến 24 tháng — xem hướng dẫn của hãng hoặc nhờ kỹ thuật viên kiểm tra.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Chỉ vài phút chăm sóc mỗi tuần giúp thiết bị bếp luôn sạch đẹp và bền bỉ.',
+      'Lưu lại bài hướng dẫn để tiện làm theo khi cần.',
+      'Nếu thiết bị có dấu hiệu bất thường, hãy liên hệ trung tâm bảo hành để được kiểm tra.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để đặt lịch bảo dưỡng thiết bị tận nhà.',
+      'Ghé cửa hàng để mua lõi lọc, phụ kiện chính hãng.',
+      'Theo dõi fanpage để nhận thêm hướng dẫn hữu ích.',
+    ],
+    tagPool: ['hướng dẫn sử dụng', 'vệ sinh thiết bị bếp', 'bếp từ', 'máy rửa bát', 'bảo dưỡng'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'induction cooktop|induction stove|induction hob -fire -flame',
+      'range hood|exhaust hood|cooker hood -hoodie -hooded -lens -halloween',
+      'dishwasher|dish washer',
+      'microwave oven|microwave -pizza -cat',
+      'water purifier|water dispenser|water filter -soap -coffee -beauty -beverage -umbrella',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Khuyến mãi': {
+    titleCores: [
+      'Ưu đãi trọn bộ thiết bị bếp âm tủ',
+      'Giảm giá bếp từ và máy hút mùi',
+      'Sale máy rửa bát mùa cuối năm',
+      'Tặng bộ nồi khi mua bếp từ',
+      'Ưu đãi gia dụng nhà bếp cho nhà mới',
+    ],
+    angles: ['— giảm đến 30%', 'kèm lắp đặt miễn phí', 'trong tháng này', 'trả góp 0% lãi suất', '— số lượng có hạn'],
+    introFragments: [
+      'Nếu bạn đang chuẩn bị làm bếp mới hoặc nâng cấp thiết bị, đây là thời điểm hợp lý để tiết kiệm đáng kể chi phí.',
+      'Showroom triển khai chương trình ưu đãi cho các dòng thiết bị bếp được khách hàng quan tâm nhiều nhất.',
+      'Chương trình áp dụng cho cả thiết bị bếp âm tủ lẫn gia dụng nhà bếp chính hãng.',
+    ],
+    contextHeading: 'Vì sao nên mua lúc này?',
+    contextFragments: [
+      'Mua trọn bộ thiết bị bếp cùng lúc giúp đồng bộ thiết kế và được mức giá tốt hơn mua lẻ từng món.',
+      'Chương trình kèm lắp đặt miễn phí, tiết kiệm thêm chi phí thi công.',
+      'Hàng chính hãng, bảo hành đầy đủ theo chính sách của hãng.',
+    ],
+    detailHeading: 'Cách nhận ưu đãi',
+    detailFragments: [
+      'Đặt hàng tại showroom hoặc online, ưu đãi được áp dụng trực tiếp vào hóa đơn.',
+      'Khách mua combo bếp từ và máy hút mùi được tặng thêm bộ nồi dùng cho bếp từ.',
+      'Hỗ trợ trả góp 0% qua thẻ tín dụng cho đơn hàng từ giá trị nhất định.',
+    ],
+    bulletFragments: [
+      'hàng chính hãng, bảo hành đầy đủ',
+      'lắp đặt miễn phí nội thành',
+      'tặng quà khi mua combo',
+      'trả góp 0% lãi suất',
+      'đổi mới trong 7 ngày nếu lỗi nhà sản xuất',
+    ],
+    bulletsHeading: 'Quyền lợi khi mua hàng',
+    adviceHeading: 'Lưu ý khi tham gia',
+    adviceFragments: [
+      'ưu đãi không cộng dồn với chương trình khác',
+      'đo kích thước tủ bếp trước khi đặt thiết bị âm tủ',
+      'đặt lịch lắp đặt sớm trong mùa cao điểm',
+    ],
+    faq: [
+      { q: 'Mua online có được lắp đặt miễn phí không?', a: 'Có, đơn hàng online trong khu vực nội thành được lắp đặt miễn phí như mua tại showroom.' },
+      { q: 'Có được xem hàng trước khi thanh toán không?', a: 'Có. Khách được kiểm tra hàng trước khi kỹ thuật viên tiến hành lắp đặt.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Ưu đãi có hạn — đặt hàng sớm để sở hữu căn bếp mơ ước với chi phí tiết kiệm.',
+      'Cảm ơn quý khách đã tin chọn thiết bị bếp chính hãng tại cửa hàng.',
+      'Liên hệ ngay để được tư vấn combo phù hợp.',
+    ],
+    ctaFragments: [
+      'Gọi hotline để giữ ưu đãi và đặt lịch lắp đặt.',
+      'Ghé showroom để xem trực tiếp các thiết bị trong chương trình.',
+      'Đặt hàng online để nhận ưu đãi ngay.',
+    ],
+    tagPool: ['khuyến mãi', 'thiết bị bếp giá tốt', 'bếp từ', 'máy rửa bát', 'trả góp 0%'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'built in oven|modern kitchen|kitchen interior -pizza -bread',
+      'induction cooktop|range hood|exhaust hood -fire -flame -hoodie -hooded -lens',
+      'dishwasher|dish washer',
+      'cooking pot|stainless pot|saucepan|pots pans -cutlery -flowerpot -poterie -teapot -coffee',
+      'air fryer|blender|electric kettle -watch',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Đánh giá sản phẩm': {
+    titleCores: [
+      'Đánh giá bếp từ đôi tầm trung',
+      'Đánh giá máy rửa bát mini cho gia đình nhỏ',
+      'So sánh bếp từ và bếp gas',
+      'Đánh giá nồi chiên không dầu dung tích lớn',
+      'So sánh máy ép chậm và máy xay sinh tố',
+    ],
+    angles: ['sau 6 tháng sử dụng', 'ưu và nhược điểm', 'có đáng tiền không', 'nên chọn loại nào', 'từ trải nghiệm thực tế'],
+    introFragments: [
+      'Trước khi xuống tiền cho một thiết bị bếp, nhiều người muốn nghe đánh giá thực tế từ người đã dùng.',
+      'Bài viết đánh giá dựa trên trải nghiệm sử dụng hằng ngày, không chỉ dựa vào thông số trên giấy.',
+      'Mỗi thiết bị có ưu điểm riêng, quan trọng là phù hợp nhu cầu và thói quen nấu nướng của gia đình bạn.',
+    ],
+    contextHeading: 'Tiêu chí đánh giá',
+    contextFragments: [
+      'Hiệu quả: nấu nhanh, sạch, ổn định trong quá trình dùng thực tế.',
+      'Tiện lợi: dễ thao tác, dễ vệ sinh, phù hợp không gian bếp.',
+      'Chi phí: giá mua, điện năng tiêu thụ và chi phí bảo dưỡng lâu dài.',
+    ],
+    detailHeading: 'Nhận xét chi tiết',
+    detailFragments: [
+      'Bếp từ đôi tầm trung đáp ứng tốt nhu cầu gia đình 3 – 5 người, nấu nhanh, mặt kính dễ lau; điểm trừ là kén nồi đáy từ.',
+      'Bếp gas lửa mạnh, dùng được mọi loại nồi nhưng nóng bếp, khó vệ sinh và kém an toàn hơn bếp từ.',
+      'Máy rửa bát mini rửa sạch, sấy khô tốt, tiết kiệm nước so với rửa tay; cần thời gian làm quen cách xếp bát.',
+      'Máy ép chậm giữ được nhiều nước và ít bọt; máy xay sinh tố đa năng hơn, làm được cả sinh tố, xay thịt, xay hạt.',
+    ],
+    bulletFragments: [
+      'bếp từ: an toàn, nhanh, dễ lau',
+      'bếp gas: lửa mạnh, dùng mọi loại nồi',
+      'máy rửa bát: tiết kiệm thời gian, nước',
+      'máy ép chậm: nước ép ngon, ít bọt',
+      'máy xay: đa năng, giá dễ tiếp cận',
+    ],
+    bulletsHeading: 'Tóm tắt đánh giá',
+    adviceHeading: 'Lời khuyên lựa chọn',
+    adviceFragments: [
+      'chọn thiết bị theo thói quen nấu nướng thực tế của gia đình',
+      'ưu tiên thương hiệu có trung tâm bảo hành gần nhà',
+      'đọc kỹ chính sách đổi trả trước khi mua',
+    ],
+    faq: [
+      { q: 'Bếp từ có độc hại không?', a: 'Bếp từ đạt chuẩn an toàn, từ trường chỉ tập trung ở vùng nấu và rất yếu khi đứng cách bếp vài chục cm.' },
+      { q: 'Máy rửa bát có rửa được nồi chảo không?', a: 'Rửa được nồi chảo inox; chảo chống dính, đồ gỗ, đồ gang nên rửa tay để bền hơn.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Hiểu rõ ưu nhược điểm giúp bạn chọn đúng thiết bị cho căn bếp của mình.',
+      'Hy vọng bài đánh giá giúp bạn có thêm góc nhìn trước khi quyết định.',
+      'Đội ngũ tư vấn luôn sẵn sàng giải đáp thêm về từng thiết bị.',
+    ],
+    ctaFragments: [
+      'Ghé showroom để trải nghiệm trực tiếp trước khi mua.',
+      'Gọi hotline để được tư vấn và so sánh các dòng thiết bị.',
+      'Theo dõi fanpage để xem thêm các bài đánh giá mới.',
+    ],
+    tagPool: ['đánh giá', 'review thiết bị bếp', 'bếp từ', 'máy rửa bát', 'nồi chiên không dầu'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'induction cooktop|induction stove|induction hob -fire -flame',
+      'dishwasher|dish washer',
+      'gas stove|gas cooktop|induction cooktop -fire',
+      'air fryer|airfryer',
+      'slow juicer|juicer|blender -watch',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+  'Sự kiện cửa hàng': {
+    titleCores: [
+      'Khai trương showroom thiết bị nhà bếp mới',
+      'Ngày hội nấu ăn cùng bếp từ',
+      'Trải nghiệm miễn phí máy rửa bát tại showroom',
+      'Workshop làm bánh với lò nướng âm tủ',
+      'Tuần lễ bảo dưỡng thiết bị bếp miễn phí',
+    ],
+    angles: ['thông báo chính thức', 'mời quý khách tham dự', 'nhiều quà tặng hấp dẫn', 'cuối tuần này', 'số chỗ có hạn'],
+    introFragments: [
+      'Nhằm mang đến trải nghiệm thực tế cho khách hàng, cửa hàng tổ chức chương trình đặc biệt tại showroom.',
+      'Đây là dịp để quý khách tận tay trải nghiệm các thiết bị bếp trước khi quyết định mua.',
+      'Kính mời quý khách và gia đình tham gia chương trình với nhiều hoạt động thú vị.',
+    ],
+    contextHeading: 'Nội dung chương trình',
+    contextFragments: [
+      'Đầu bếp trình diễn nấu ăn trực tiếp trên bếp từ, lò nướng và nồi chiên không dầu.',
+      'Kỹ thuật viên hướng dẫn cách sử dụng, vệ sinh và bảo dưỡng thiết bị đúng cách.',
+      'Tư vấn thiết kế, bố trí thiết bị cho từng kiểu bếp.',
+    ],
+    detailHeading: 'Thông tin tham dự',
+    detailFragments: [
+      'Quý khách đăng ký trước qua hotline hoặc fanpage để được giữ chỗ.',
+      'Khách tham dự nhận quà tặng và ưu đãi riêng khi mua hàng trong ngày.',
+      'Chương trình miễn phí tham dự, không bắt buộc mua hàng.',
+    ],
+    bulletFragments: [
+      'trải nghiệm thiết bị trực tiếp',
+      'trình diễn nấu ăn cùng đầu bếp',
+      'tư vấn thiết kế bếp miễn phí',
+      'quà tặng cho khách tham dự',
+      'ưu đãi riêng trong ngày sự kiện',
+    ],
+    bulletsHeading: 'Điểm nổi bật',
+    adviceHeading: 'Để tham gia thuận lợi',
+    adviceFragments: [
+      'đăng ký sớm vì số chỗ có hạn',
+      'mang theo kích thước bếp nhà để được tư vấn chính xác',
+      'đến sớm 15 phút để nhận quà',
+    ],
+    faq: [
+      { q: 'Tham dự có mất phí không?', a: 'Chương trình hoàn toàn miễn phí, chỉ cần đăng ký trước để giữ chỗ.' },
+      { q: 'Có được mua hàng với giá ưu đãi trong ngày không?', a: 'Có, khách tham dự được áp dụng ưu đãi riêng cho đơn hàng trong ngày sự kiện.' },
+    ],
+    closingHeading: 'Lời kết',
+    closingFragments: [
+      'Rất mong được đón tiếp quý khách tại showroom.',
+      'Cảm ơn quý khách đã luôn quan tâm và đồng hành cùng cửa hàng.',
+      'Theo dõi fanpage để cập nhật các chương trình tiếp theo.',
+    ],
+    ctaFragments: [
+      'Đăng ký tham dự ngay qua hotline.',
+      'Nhắn tin fanpage để giữ chỗ.',
+      'Ghé showroom để được tư vấn trực tiếp.',
+    ],
+    tagPool: ['sự kiện', 'showroom', 'trải nghiệm thiết bị bếp', 'workshop', 'ưu đãi'],
+    imageKeyword: 'modern kitchen|kitchen interior',
+    titleImageKeywords: [
+      'kitchen showroom|modern kitchen|kitchen interior',
+      'cooking class|chef cooking|induction cooktop -fire -flame',
+      'dishwasher|dish washer',
+      'baking class|built in oven|electric oven -pizza',
+      'range hood|exhaust hood|built in oven -hoodie -hooded -lens -halloween -pizza',
+    ],
+    titleIndustrySuffix: () => '',
+  },
+}
+
 interface GalleryAlbum {
   title: string
   imageKeyword: string
@@ -1686,6 +3244,28 @@ const GALLERY_ALBUMS: Partial<Record<Industry, GalleryAlbum[]>> = {
     { title: 'Album ảnh sản phẩm', imageKeyword: 'product photography studio' },
     { title: 'Hậu trường buổi chụp', imageKeyword: 'photographer behind the scenes' },
   ],
+  'Vận tải - Gửi hàng, Chành xe': [
+    { title: 'Album đội xe tải', imageKeyword: 'cargo truck|freight truck|semi truck|delivery truck' },
+    { title: 'Album xe khách giường nằm', imageKeyword: 'coach bus|sleeper bus|intercity bus|luxury bus' },
+    { title: 'Album bốc xếp hàng hóa', imageKeyword: 'truck loading|forklift truck|loading truck|cargo truck' },
+    { title: 'Album xe chở hàng đi tỉnh', imageKeyword: 'delivery truck|cargo truck|freight truck|semi truck' },
+    { title: 'Album xe chạy tuyến', imageKeyword: 'highway truck|freight truck|coach bus|intercity bus' },
+  ],
+  'Thiết bị nhà bếp': [
+    { title: 'Album bếp từ, bếp gas', imageKeyword: 'induction cooktop|gas stove|induction stove -fire -flame' },
+    { title: 'Album không gian bếp đẹp', imageKeyword: 'modern kitchen|kitchen interior|luxury kitchen' },
+    { title: 'Album lò nướng, lò vi sóng', imageKeyword: 'built in oven|microwave oven|electric oven -pizza -bread -cat' },
+    { title: 'Album chậu vòi rửa', imageKeyword: 'kitchen sink|kitchen faucet|stainless steel sink -bathroom -mirror' },
+    { title: 'Album gia dụng nhà bếp', imageKeyword: 'air fryer|blender|electric kettle|rice cooker -watch -egg' },
+  ],
+  'Âm thanh - Loa, Micro, Tai nghe': [
+    { title: 'Album loa karaoke', imageKeyword: 'karaoke speaker|pa speaker|loudspeaker|speaker box' },
+    { title: 'Album loa bluetooth di động', imageKeyword: 'bluetooth speaker|portable speaker|wireless speaker' },
+    { title: 'Album dàn âm thanh gia đình', imageKeyword: 'home theater speakers|stereo speakers|hifi speakers|bookshelf speakers' },
+    { title: 'Album tai nghe', imageKeyword: 'over ear headphones|wireless headphones|wireless earbuds' },
+    { title: 'Album micro karaoke', imageKeyword: 'karaoke microphone|wireless microphone|handheld microphone' },
+    { title: 'Album thiết bị xử lý âm thanh', imageKeyword: 'audio mixer|power amplifier|sound mixer' },
+  ],
 }
 
 const STUDIO_GALLERY_ANGLES = ['concept Hàn Quốc', 'phong cách tối giản', 'tông màu film hoài cổ', 'ánh sáng tự nhiên', 'mùa thu', 'tháng này']
@@ -1706,7 +3286,7 @@ function generateGalleryArticle(index: number, industry: string, blogName: strin
   const industryContext = getIndustryContext(industry)
   const industryAlbums = GALLERY_ALBUMS[industry as Industry]
   const albums = industryAlbums ?? genericGalleryAlbums(industryContext)
-  const angles = industryAlbums ? STUDIO_GALLERY_ANGLES : GENERIC_GALLERY_ANGLES
+  const angles = industry === 'Studio - Chụp ảnh & Quay phim' ? STUDIO_GALLERY_ANGLES : GENERIC_GALLERY_ANGLES
   // Rải đều qua từng tổ hợp (album × góc nhìn) trước khi lặp lại — cùng nguyên tắc chống trùng tiêu đề như bài viết thường.
   const album = albums[index % albums.length]
   const angle = angles[Math.floor(index / albums.length) % angles.length]
@@ -1718,7 +3298,7 @@ function generateGalleryArticle(index: number, industry: string, blogName: strin
     imageKeyword: album.imageKeyword,
     excerpt: `${title}.`,
     content: '',
-    tags: ['demo', 'album', industryContext.label],
+    tags: ['album', industryContext.label],
     blog: blogName,
     seoTitle: title,
     seoDescription: `${title}.`,
@@ -1863,7 +3443,7 @@ function generateProjectStoryArticle(index: number, industry: string, blogName?:
       style.materials,
       owner,
     ),
-    tags: ['demo', 'dự án', 'thi công nội thất', style.name.toLowerCase(), industryContext.label],
+    tags: ['dự án', 'thi công nội thất', style.name.toLowerCase(), industryContext.label],
     blog: blogName ?? '',
     seoTitle: `Dự án ${title}`,
     seoDescription: excerpt,
@@ -1881,6 +3461,7 @@ export function generateMockArticle(
   blogName?: string,
 ): Article {
   if (blogName && isGalleryBlog(blogName)) return generateGalleryArticle(index, industry, blogName)
+  if (topic === AUTO_TOPIC) topic = topicForBlog(blogName, industry)
   if (topic === PROJECT_TOPIC) return generateProjectStoryArticle(index, industry, blogName)
   const baseTemplate = TEMPLATES[topic as ArticleTopic] ?? TEMPLATES['Tin tức ngành hàng']
   const override = INDUSTRY_TOPIC_OVERRIDES[industry as ArticleIndustry]?.[topic as ArticleTopic]
@@ -1913,12 +3494,11 @@ export function generateMockArticle(
     id: `draft-article-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
     title,
     author: pick(template.authorPool, seed + 3),
-    imageKeyword: override?.imageKeyword ?? `${template.imageKeyword} ${industryContext.imageKeyword}`,
+    imageKeyword: template.titleImageKeywords?.[coreIndex] ?? override?.imageKeyword ?? `${template.imageKeyword} ${industryContext.imageKeyword}`,
     excerpt,
     content: buildContentHtml(template, tone, tags, extraPrompt, industryContext.label, seed),
-    // Tag "demo" để nhận diện + xóa hàng loạt sau này (xem backend/routes/cleanup.ts), cùng nguyên tắc với
-    // mockGenerate.ts — không phải tag marketing bịa ra, không tính vào 3 tag hiển thị ở đầu.
-    tags: [...new Set(['demo', ...tags])],
+    // App.tsx thay bằng tag người dùng tự nhập khi tạo bài; nút xóa dữ liệu demo dựa vào id backend ghi lại, không cần tag.
+    tags: [...new Set(tags)],
     blog: blogName ?? '',
     seoTitle: title,
     seoDescription: excerpt,

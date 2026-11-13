@@ -34,8 +34,66 @@ interface Template {
    * áp dụng chung 1 mẫu cho mọi ngành (VD nói "chất liệu, độ hoàn thiện" hay "đổi trả trong 7 ngày" cho
    * xoài/cua tươi là sai thực tế). Mặc định 'durable' (hàng bền) nếu không khai báo.
    */
-  descriptionKind?: 'durable' | 'food' | 'cosmetics' | 'service' | 'furniture'
+  descriptionKind?: 'durable' | 'food' | 'cosmetics' | 'service' | 'furniture' | 'logistics'
+  /**
+   * Khớp CHÍNH XÁC tên danh mục (viết thường) → các loại sản phẩm (chỉ số trong `nouns`) — ưu tiên trước cách so khớp
+   * theo từ. Dùng khi danh mục của store đặt tên rất sát nhau (VD "Loa di động" / "Loa Hifi di động" / "Loa Bluetooth
+   * di động") mà so khớp theo từ sẽ lẫn sang nhau.
+   */
+  collectionNouns?: Record<string, number[]>
+  /**
+   * Thương hiệu → các loại sản phẩm hãng đó thật sự bán (chỉ số trong `nouns`). Danh mục đặt đúng tên 1 thương hiệu
+   * (VD "JBL") → chỉ tạo dòng sản phẩm của hãng đó; danh mục thường → mỗi loại chỉ gán các hãng có bán loại ấy.
+   */
+  brandNouns?: Record<string, number[]>
+  /**
+   * Khoảng giá hợp lý RIÊNG từng loại (song song `nouns`) — VD gửi 1 kiện hàng lẻ chỉ vài trăm nghìn, còn thuê nguyên chuyến
+   * xe lên tới chục triệu. Giá lấy trong phần giao giữa khoảng này và khoảng giá người dùng kéo; không giao nhau → dùng khoảng này.
+   */
+  nounPriceRanges?: [number, number][]
+  /** Ghép tên thương hiệu vào tên sản phẩm (VD "Loa mini bluetooth JBL ...") — thói quen đặt tên của ngành âm thanh. */
+  brandInName?: boolean
 }
+
+/**
+ * Ngành Vận tải - Gửi hàng, Chành xe: mỗi "sản phẩm" là 1 DỊCH VỤ × 1 TUYẾN (VD "Gửi hàng lẻ tuyến Đồng Nai – Nha Trang").
+ * Chỉ số noun = dịch vụ * số tuyến + tuyến — collectionNouns bên dưới dựng từ 2 mảng này để danh mục dịch vụ (cấp 2 của
+ * "Dịch vụ vận chuyển") ra đủ các tuyến, còn danh mục tuyến (cấp 3 của "Tuyến vận chuyển") ra đủ 3 loại dịch vụ của tuyến đó.
+ */
+const LOGISTICS_SERVICES: { name: string; collection: string; imageKeyword: string; tags: string[]; priceRange: [number, number] }[] = [
+  {
+    name: 'Gửi hàng lẻ',
+    collection: 'gửi hàng lẻ',
+    imageKeyword: 'coach bus|intercity bus|delivery truck|cargo truck',
+    tags: ['hàng lẻ', 'gửi hàng'],
+    priceRange: [50000, 500000],
+  },
+  {
+    name: 'Gửi hàng ghép',
+    collection: 'gửi hàng ghép',
+    imageKeyword: 'cargo truck|delivery truck|freight truck|sleeper bus',
+    tags: ['hàng ghép', 'ghép hàng'],
+    priceRange: [500000, 3000000],
+  },
+  {
+    name: 'Vận chuyển hàng bao chuyến',
+    collection: 'vận chuyển hàng bao chuyến',
+    imageKeyword: 'freight truck|semi truck|container truck|cargo truck',
+    tags: ['bao chuyến', 'thuê xe'],
+    priceRange: [3000000, 25000000],
+  },
+]
+const LOGISTICS_ROUTES = [
+  'Đồng Nai – TP.HCM',
+  'Đồng Nai – Phan Thiết',
+  'Đồng Nai – Nha Trang',
+  'Đồng Nai – Quảng Ngãi',
+  'Đồng Nai – Bảo Lộc, Đơn Dương, Đà Lạt',
+  'Đồng Nai – Đắk Nông, Đắk Lắk, Kon Tum',
+  'Đồng Nai – Vũng Tàu và các tỉnh miền Tây',
+]
+const LOGISTICS_PAIRS = LOGISTICS_SERVICES.flatMap((service) => LOGISTICS_ROUTES.map((route) => ({ service, route })))
+const LOGISTICS_ALL = LOGISTICS_PAIRS.map((_, i) => i)
 
 const TEMPLATES: Record<Industry, Template> = {
   'Thời trang - Trang sức': {
@@ -275,6 +333,287 @@ const TEMPLATES: Record<Industry, Template> = {
     unit: 'Cái',
     weightRangeGrams: [300, 3000],
   },
+  'Thiết bị nhà bếp': {
+    category: 'Thiết bị nhà bếp',
+    // Thiết bị bếp âm/điện (bếp từ, hút mùi, lò, máy rửa bát, chậu vòi, lọc nước) + gia dụng bếp + nồi chảo dao — chia theo
+    // danh mục hay gặp ở các store thiết bị nhà bếp (xem collectionNouns).
+    nouns: [
+      'Bếp từ đôi', // 0
+      'Bếp từ đơn', // 1
+      'Bếp gas âm kính', // 2
+      'Máy hút mùi', // 3
+      'Lò nướng âm tủ', // 4
+      'Lò vi sóng', // 5
+      'Máy rửa bát', // 6
+      'Chậu rửa bát inox', // 7
+      'Vòi rửa bát nóng lạnh', // 8
+      'Máy lọc nước RO', // 9
+      'Nồi chiên không dầu', // 10
+      'Nồi cơm điện', // 11
+      'Nồi áp suất điện', // 12
+      'Bộ nồi inox', // 13
+      'Chảo chống dính', // 14
+      'Máy xay sinh tố', // 15
+      'Máy ép chậm', // 16
+      'Ấm siêu tốc', // 17
+      'Bộ dao nhà bếp', // 18
+    ],
+    // Từ có "-" phía trước = loại ảnh chứa từ đó (VD "-bathroom" để chậu/vòi rửa không ra ảnh phòng tắm) — xem images.ts.
+    nounKeywords: [
+      'induction cooktop|induction hob|induction stove -fire -flame',
+      'induction cooktop|induction stove|induction hob -fire -flame',
+      'gas stove|gas cooktop|gas burner',
+      'range hood|exhaust hood|cooker hood -hoodie -hooded -lens -halloween',
+      'built in oven|electric oven|oven kitchen -pizza -bread -christmas',
+      'microwave oven|microwave -pizza -cat',
+      'dishwasher|dish washer',
+      'kitchen sink|stainless steel sink|double sink -bathroom -mirror',
+      'kitchen faucet|kitchen tap|sink faucet -bathroom -mirror',
+      'water purifier|water dispenser|water filter -soap -coffee -beauty -beverage -umbrella',
+      'air fryer|airfryer',
+      'rice cooker|electric rice cooker -egg -knob',
+      'pressure cooker|electric pressure cooker',
+      'cooking pot|stainless pot|saucepan|pots pans -cutlery -flowerpot -poterie -teapot -coffee',
+      'frying pan|nonstick pan|skillet',
+      'blender|smoothie blender -watch',
+      'slow juicer|juicer|juice extractor',
+      'electric kettle|kettle',
+      'knife set|knife block|kitchen knife',
+    ],
+    nounTags: [
+      ['bếp từ', 'bếp điện từ'],
+      ['bếp từ', 'bếp điện từ'],
+      ['bếp gas', 'bếp ga'],
+      ['hút mùi'],
+      ['lò nướng'],
+      ['lò vi sóng'],
+      ['rửa bát', 'rửa chén'],
+      ['chậu rửa', 'chậu'],
+      ['vòi rửa', 'vòi'],
+      ['lọc nước'],
+      ['nồi chiên', 'gia dụng'],
+      ['nồi cơm', 'gia dụng'],
+      ['nồi áp suất', 'gia dụng'],
+      ['nồi', 'dụng cụ'],
+      ['chảo', 'dụng cụ'],
+      ['máy xay', 'gia dụng'],
+      ['máy ép', 'gia dụng'],
+      ['ấm', 'gia dụng'],
+      ['dao', 'dụng cụ'],
+    ],
+    nounPriceRanges: [
+      [5000000, 30000000],
+      [600000, 3000000],
+      [2000000, 10000000],
+      [3000000, 20000000],
+      [8000000, 35000000],
+      [1500000, 12000000],
+      [8000000, 35000000],
+      [1500000, 10000000],
+      [800000, 6000000],
+      [4000000, 15000000],
+      [1000000, 5000000],
+      [700000, 5000000],
+      [1000000, 4000000],
+      [700000, 5000000],
+      [200000, 1500000],
+      [500000, 3000000],
+      [2000000, 8000000],
+      [250000, 1500000],
+      [300000, 3000000],
+    ],
+    collectionNouns: {
+      'thiết bị nhà bếp': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+      'thiết bị bếp': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      'bếp': [0, 1, 2],
+      'bếp từ': [0, 1],
+      'bếp điện từ': [0, 1],
+      'bếp gas': [2],
+      'máy hút mùi': [3],
+      'lò nướng': [4],
+      'lò vi sóng': [5],
+      'lò nướng, lò vi sóng': [4, 5],
+      'máy rửa bát': [6],
+      'máy rửa chén': [6],
+      'chậu rửa bát': [7],
+      'chậu rửa': [7],
+      'vòi rửa bát': [8],
+      'chậu, vòi rửa': [7, 8],
+      'máy lọc nước': [9],
+      'gia dụng nhà bếp': [10, 11, 12, 15, 16, 17],
+      'đồ gia dụng nhà bếp': [10, 11, 12, 15, 16, 17],
+      'nồi chảo': [13, 14],
+      'nồi/chảo': [13, 14],
+      'hút mùi': [3],
+      'vòi chậu rửa': [8],
+      // Danh mục "Thiết bị khác" trong nhóm Thiết bị nhà bếp — mọi thứ ngoài bếp, hút mùi, chậu vòi, nồi chảo.
+      'thiết bị khác': [4, 5, 6, 9, 10, 11, 12, 15, 16, 17, 18],
+      'dụng cụ nhà bếp': [13, 14, 18],
+    },
+    brandNouns: {
+      Bosch: [0, 1, 3, 4, 5, 6],
+      Hafele: [0, 1, 2, 3, 4, 6, 7, 8],
+      Malloca: [0, 2, 3, 4, 5, 7, 8],
+      Teka: [0, 2, 3, 4, 5, 7, 8],
+      Electrolux: [0, 5, 6, 10, 11, 15, 17],
+      Sunhouse: [1, 2, 10, 11, 12, 13, 14, 15, 17, 18],
+      Philips: [10, 11, 12, 15, 16, 17],
+      Panasonic: [5, 11, 12, 15, 16],
+      'Lock&Lock': [10, 13, 14, 17, 18],
+      Karofi: [9],
+      Kangaroo: [9, 10, 11, 12],
+    },
+    brandInName: true,
+    // Tính từ hợp với MỌI loại (cả chậu rửa, dao) — không dùng "tiết kiệm điện" vì chậu/vòi/dao không dùng điện.
+    adjectives: ['chính hãng', 'mẫu mới', 'thiết kế sang trọng', 'bền bỉ', 'giá tốt', 'dễ vệ sinh', 'nhập khẩu chính ngạch'],
+    tagPool: ['gia đình trẻ', 'căn hộ chung cư', 'nhà mới', 'người nội trợ', 'quà tân gia'],
+    basePriceRange: { 'Bình dân': [200000, 2000000], 'Trung cấp': [2000000, 10000000], 'Cao cấp': [10000000, 35000000] },
+    brandPool: ['Bosch', 'Hafele', 'Malloca', 'Teka', 'Electrolux', 'Sunhouse', 'Philips', 'Panasonic', 'Lock&Lock', 'Karofi', 'Kangaroo'],
+    unit: 'Cái',
+    weightRangeGrams: [300, 40000],
+    attributePresets: [
+      { name: 'Màu sắc', values: ['Đen', 'Bạc', 'Trắng'] },
+      { name: 'Bảo hành', values: ['12 tháng', '24 tháng', '36 tháng'] },
+    ],
+  },
+  'Thiết bị vệ sinh - Nhà tắm': {
+    category: 'Thiết bị vệ sinh - Nhà tắm',
+    // Ga thoát sàn, phụ kiện nhà tắm, gương, bình nóng lạnh, quạt/điều hòa — theo danh mục "Phụ kiện nhà tắm" hay gặp ở store
+    // thiết bị bếp & nhà tắm (xem collectionNouns).
+    nouns: [
+      'Ga thoát sàn inox chống mùi', // 0
+      'Ga thoát sàn dạng dài', // 1
+      'Kệ góc nhà tắm', // 2
+      'Thanh vắt khăn', // 3
+      'Lô giấy vệ sinh', // 4
+      'Móc treo đồ nhà tắm', // 5
+      'Bộ phụ kiện nhà tắm 6 món', // 6
+      'Gương nhà tắm đèn LED', // 7
+      'Gương nhà tắm tròn', // 8
+      'Bình nóng lạnh gián tiếp 20L', // 9
+      'Bình nóng lạnh gián tiếp 30L', // 10
+      'Máy nước nóng trực tiếp', // 11
+      'Quạt thông gió nhà tắm', // 12
+      'Quạt trần đèn', // 13
+      'Quạt treo tường', // 14
+      'Điều hòa treo tường Inverter', // 15
+      'Hộp đựng xà phòng', // 16
+      'Bình đựng nước rửa tay gắn tường', // 17
+      'Kệ cốc đựng bàn chải', // 18
+      'Vòi xịt vệ sinh', // 19
+      'Bộ sen tắm nóng lạnh', // 20
+    ],
+    // Kho ảnh miễn phí gần như không có ảnh bình nóng lạnh treo tường → ghép thêm ảnh nhà tắm hiện đại cho nhóm này.
+    nounKeywords: [
+      'floor drain|shower drain|bathroom drain -street -urban -road -manhole -pool -leaves -rusty -petal',
+      'shower drain|floor drain|bathroom drain -street -urban -road -manhole -pool -leaves -rusty -petal',
+      'shower caddy|shower shelf|bathroom shelf -cosmetics -bottles -decor -books -mug',
+      'towel rack|towel bar|towel rail -coat -bikini -laundry -dryer -soap',
+      'toilet paper holder|toilet roll holder',
+      'towel hook|bathroom hooks|coat hook -masks -clothes -rusty -peeled -meat -crochet -finch -garden -yarn',
+      'bathroom accessories|bathroom accessory set -shaving',
+      'bathroom mirror|led mirror|vanity mirror -eye -contemplative',
+      'round mirror|bathroom mirror|wall mirror -gucci -compact -kitten -eye -leaf -jewelry -photographer',
+      'water heater|bathroom heater|modern bathroom -solar -sauna -patio -radiator -cat -rooftop -man -woman',
+      'water heater|bathroom heater|modern bathroom -solar -sauna -patio -radiator -cat -rooftop -man -woman',
+      'water heater|bathroom heater|modern bathroom -solar -sauna -patio -radiator -cat -rooftop -man -woman',
+      'exhaust fan|ventilation fan|bathroom fan -aircraft -jet -engine',
+      'ceiling fan -restaurant -dome -chandelier -palace -football -aircraft -jet',
+      'electric fan|stand fan|wall fan -aircraft -jet -football',
+      'wall air conditioner|split air conditioner|indoor air conditioner -broccoli -building -facade -blocks -exterior -apartment',
+      'soap dish|soap holder|soap tray',
+      'soap dispenser|liquid soap dispenser -beauty -hand',
+      'toothbrush holder|toothbrush cup -toilet -paper -stick -hexagonal',
+      'bidet sprayer|toilet sprayer|handheld bidet',
+      'shower head|rain shower|shower faucet -seedhead -gull -sign -scabiosa',
+    ],
+    nounTags: [
+      ['thoát sàn', 'ga thoát'],
+      ['thoát sàn', 'ga thoát'],
+      ['kệ', 'phụ kiện'],
+      ['vắt khăn', 'phụ kiện'],
+      ['lô giấy', 'phụ kiện'],
+      ['móc', 'phụ kiện'],
+      ['bộ phụ kiện', 'phụ kiện'],
+      ['gương'],
+      ['gương'],
+      ['bình nóng lạnh', 'nóng lạnh'],
+      ['bình nóng lạnh', 'nóng lạnh'],
+      ['nước nóng', 'nóng lạnh'],
+      ['quạt', 'thông gió'],
+      ['quạt'],
+      ['quạt'],
+      ['điều hòa', 'máy lạnh'],
+      ['xà phòng', 'phụ kiện'],
+      ['nước rửa tay', 'phụ kiện'],
+      ['bàn chải', 'phụ kiện'],
+      ['vòi xịt', 'phụ kiện'],
+      ['sen tắm', 'vòi sen'],
+    ],
+    nounPriceRanges: [
+      [150000, 1200000],
+      [400000, 2500000],
+      [200000, 1500000],
+      [200000, 1500000],
+      [150000, 800000],
+      [80000, 500000],
+      [800000, 4000000],
+      [1500000, 8000000],
+      [500000, 3000000],
+      [2000000, 6000000],
+      [2500000, 7000000],
+      [2000000, 6000000],
+      [300000, 2000000],
+      [2000000, 10000000],
+      [400000, 2000000],
+      [6000000, 25000000],
+      [100000, 600000],
+      [150000, 900000],
+      [100000, 700000],
+      [150000, 1200000],
+      [1000000, 8000000],
+    ],
+    collectionNouns: {
+      'thiết bị vệ sinh': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      'thiết bị nhà tắm': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      // Trùng tên cả nhóm cha lẫn danh mục con → hiểu là danh mục con: các món phụ kiện treo/gắn tường.
+      'phụ kiện nhà tắm': [2, 3, 4, 5, 6, 16, 17, 18, 19, 20],
+      'vòi xịt': [19],
+      'sen tắm': [20],
+      'vòi sen': [20],
+      'ga thoát sàn': [0, 1],
+      'thoát sàn': [0, 1],
+      'gương nhà tắm': [7, 8],
+      'gương': [7, 8],
+      'bình nóng lạnh': [9, 10, 11],
+      'máy nước nóng': [9, 10, 11],
+      'quạt/điều hòa': [12, 13, 14, 15],
+      'quạt': [12, 13, 14],
+      'điều hòa': [15],
+    },
+    brandNouns: {
+      Inax: [0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19, 20],
+      TOTO: [0, 1, 2, 3, 4, 6, 7, 8, 17, 19, 20],
+      Caesar: [0, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19, 20],
+      Ariston: [9, 10, 11],
+      Ferroli: [9, 10, 11],
+      Rossi: [9, 10],
+      Panasonic: [11, 12, 13, 14, 15],
+      KDK: [12, 13, 14],
+      Daikin: [15],
+    },
+    brandInName: true,
+    adjectives: ['chính hãng', 'mẫu mới', 'thiết kế hiện đại', 'bền bỉ', 'giá tốt', 'dễ lắp đặt', 'nhập khẩu chính ngạch'],
+    tagPool: ['nhà mới', 'căn hộ chung cư', 'cải tạo nhà tắm', 'gia đình trẻ', 'khách sạn, homestay'],
+    basePriceRange: { 'Bình dân': [80000, 1500000], 'Trung cấp': [1500000, 8000000], 'Cao cấp': [8000000, 25000000] },
+    brandPool: ['Inax', 'TOTO', 'Caesar', 'Ariston', 'Ferroli', 'Rossi', 'Panasonic', 'KDK', 'Daikin'],
+    unit: 'Cái',
+    weightRangeGrams: [100, 40000],
+    attributePresets: [
+      { name: 'Màu sắc', values: ['Inox bóng', 'Đen mờ', 'Trắng'] },
+      { name: 'Bảo hành', values: ['12 tháng', '24 tháng', '5 năm'] },
+    ],
+  },
   'Hóa phẩm - Vệ sinh nhà cửa': {
     category: 'Hóa phẩm - Vệ sinh nhà cửa',
     nouns: [
@@ -482,6 +821,132 @@ const TEMPLATES: Record<Industry, Template> = {
     unit: 'Cái',
     weightRangeGrams: [8000, 80000],
     attributePresets: [{ name: 'Bảo hành', values: ['12 tháng', '24 tháng'] }],
+  },
+  'Âm thanh - Loa, Micro, Tai nghe': {
+    category: 'Âm thanh - Loa, Micro, Tai nghe',
+    // Chia sát theo danh mục thật của các store âm thanh (VD ducanh-audio.mysapo.net): loa theo từng kiểu dùng, micro,
+    // tai nghe, thiết bị xử lý âm thanh và phụ kiện — xem collectionNouns bên dưới để khớp đúng từng danh mục con.
+    nouns: [
+      'Loa karaoke gia đình', // 0
+      'Loa kéo karaoke', // 1
+      'Loa di động có bánh xe', // 2
+      'Loa mini bluetooth', // 3
+      'Loa xách tay karaoke', // 4
+      'Loa Hifi di động', // 5
+      'Loa Party đèn LED', // 6
+      'Loa Bluetooth di động chống nước', // 7
+      'Loa bookshelf', // 8
+      'Loa Soundbar', // 9
+      'Loa Sub điện', // 10
+      'Micro không dây UHF', // 11
+      'Micro karaoke có dây', // 12
+      'Micro karaoke bluetooth', // 13
+      'Tai nghe TWS chống ồn', // 14
+      'Tai nghe chụp tai', // 15
+      'Tai nghe thể thao', // 16
+      'Vang số karaoke', // 17
+      'Cục đẩy công suất', // 18
+      'Bàn mixer', // 19
+      'Chân loa', // 20
+      'Kệ chân loa', // 21
+    ],
+    nounKeywords: [
+      // Nhiều từ khóa thay thế cách nhau bởi "|" — ảnh stock về loa ít, gộp nhiều lượt tìm cho đủ ảnh khác nhau (xem images.ts).
+      'karaoke speaker|pa speaker|loudspeaker|speaker box',
+      'portable pa speaker|pa speaker|karaoke speaker|loudspeaker',
+      'portable speaker|wireless speaker|bluetooth speaker|loudspeaker',
+      'mini bluetooth speaker|small bluetooth speaker|bluetooth speaker|smart speaker',
+      'portable speaker handle|portable speaker|bluetooth speaker|wireless speaker',
+      'hifi portable speaker|hifi speaker|wireless speaker|portable speaker',
+      'party speaker lights|party speaker|led speaker|bluetooth speaker',
+      'waterproof bluetooth speaker|outdoor bluetooth speaker|bluetooth speaker|portable speaker',
+      'bookshelf speakers|hifi speaker|stereo speakers|speaker pair',
+      'soundbar|sound bar|tv speaker|home theater speaker',
+      'subwoofer speaker|subwoofer|bass speaker|speaker cabinet',
+      'handheld microphone',
+      'karaoke microphone',
+      'bluetooth karaoke microphone',
+      'wireless earbuds',
+      'over ear headphones',
+      'sport earphones',
+      'audio processor',
+      'power amplifier',
+      'audio mixer',
+      'speaker stands',
+      'speaker stands',
+    ],
+    nounTags: [
+      ['loa', 'karaoke', 'gia đình'],
+      ['loa', 'loa kéo', 'karaoke'],
+      ['loa', 'di động'],
+      ['loa', 'mini', 'bluetooth'],
+      ['loa', 'xách tay', 'karaoke'],
+      ['loa', 'hifi', 'di động'],
+      ['loa', 'party'],
+      ['loa', 'bluetooth', 'di động'],
+      ['loa', 'bookshelf'],
+      ['loa', 'soundbar'],
+      ['loa', 'sub', 'subwoofer'],
+      ['micro', 'không dây'],
+      ['micro', 'karaoke'],
+      ['micro', 'karaoke', 'bluetooth'],
+      ['tai nghe', 'tws', 'không dây'],
+      ['tai nghe', 'chụp tai'],
+      ['tai nghe', 'thể thao'],
+      ['vang số', 'xử lý âm thanh'],
+      ['đẩy công suất', 'xử lý âm thanh'],
+      ['mixer', 'xử lý âm thanh'],
+      ['chân loa', 'phụ kiện'],
+      ['kệ chân loa', 'phụ kiện'],
+    ],
+    collectionNouns: {
+      loa: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      'loa karaoke và loa gia đình': [0, 1],
+      'loa karaoke': [0, 1, 4],
+      'loa di động': [2, 4, 5, 7],
+      'loa mini': [3],
+      'loa xách tay': [4],
+      'loa hifi di động': [5],
+      'loa party': [6],
+      'loa bluetooth di động': [7, 3],
+      'loa bookshelf': [8],
+      'loa soundbar': [9],
+      'loa sub': [10],
+      micro: [11, 12, 13],
+      'micro không dây': [11, 13],
+      'micro karaoke': [12, 13, 11],
+      'tai nghe': [14, 15, 16],
+      'tai nghe tws': [14],
+      'tai nghe chụp tai': [15],
+      'tai nghe thể thao': [16],
+      'thiết bị xử lý âm thanh': [17, 18, 19],
+      'thiết bị âm thanh': [17, 18, 19],
+      'vang số': [17],
+      'phụ kiện âm thanh': [20, 21],
+      'chân loa': [20],
+      'kệ chân loa': [21],
+    },
+    // Dòng sản phẩm thật của từng hãng: JBL/Harman Kardon mạnh loa bluetooth, soundbar, tai nghe; Acnos/Kadma/Alpha Works
+    // chuyên loa karaoke, loa kéo, micro và thiết bị xử lý.
+    brandNouns: {
+      JBL: [3, 5, 6, 7, 9, 10, 14, 15, 16],
+      'Harman Kardon': [3, 5, 7, 8, 9, 10, 14, 15],
+      Acnos: [0, 1, 2, 4, 11, 12, 13, 17, 18],
+      Kadma: [1, 2, 4, 6, 12, 13],
+      'Alpha Works': [0, 8, 11, 12, 17, 18, 19, 20, 21],
+    },
+    brandInName: true,
+    // Tính từ phải hợp với MỌI loại (cả chân loa, micro, tai nghe) — đặc tính riêng như "bass mạnh", "Bluetooth 5.3" để ở mô tả.
+    adjectives: ['chính hãng', 'mẫu mới', 'thiết kế sang trọng', 'bền bỉ', 'giá tốt', 'phiên bản cao cấp', 'nhập khẩu chính ngạch'],
+    tagPool: ['âm thanh', 'karaoke', 'giải trí gia đình', 'chính hãng', 'bảo hành 12 tháng'],
+    basePriceRange: { 'Bình dân': [500000, 3000000], 'Trung cấp': [3000000, 10000000], 'Cao cấp': [10000000, 35000000] },
+    brandPool: ['JBL', 'Harman Kardon', 'Acnos', 'Kadma', 'Alpha Works'],
+    unit: 'Cái',
+    weightRangeGrams: [300, 25000],
+    attributePresets: [
+      { name: 'Màu sắc', values: ['Đen', 'Xám', 'Xanh navy', 'Trắng'] },
+      { name: 'Bảo hành', values: ['12 tháng', '18 tháng', '24 tháng'] },
+    ],
   },
   'Thực phẩm - Nhà hàng': {
     category: 'Thực phẩm - Nhà hàng',
@@ -962,6 +1427,43 @@ const TEMPLATES: Record<Industry, Template> = {
     unit: 'Cái',
     weightRangeGrams: [100, 3000],
   },
+  'Vận tải - Gửi hàng, Chành xe': {
+    category: 'Vận tải - Gửi hàng, Chành xe',
+    nouns: LOGISTICS_PAIRS.map(({ service, route }) => `${service.name} tuyến ${route}`),
+    nounKeywords: LOGISTICS_PAIRS.map(({ service }) => service.imageKeyword),
+    nounTags: LOGISTICS_PAIRS.map(({ service, route }) => [...service.tags, route.toLowerCase()]),
+    nounPriceRanges: LOGISTICS_PAIRS.map(({ service }) => service.priceRange),
+    collectionNouns: {
+      'dịch vụ vận chuyển': LOGISTICS_ALL,
+      'tuyến vận chuyển': LOGISTICS_ALL,
+      'tuyến vận chuyển từ đồng nai': LOGISTICS_ALL,
+      ...Object.fromEntries(
+        LOGISTICS_SERVICES.map((service, s) => [service.collection, LOGISTICS_ROUTES.map((_, r) => s * LOGISTICS_ROUTES.length + r)]),
+      ),
+      ...Object.fromEntries(
+        LOGISTICS_ROUTES.map((route, r) => [route.toLowerCase(), LOGISTICS_SERVICES.map((_, s) => s * LOGISTICS_ROUTES.length + r)]),
+      ),
+    },
+    adjectives: [
+      'giao nhận tận nơi',
+      'xe chạy hằng ngày',
+      'giá cước cạnh tranh',
+      'có bảo hiểm hàng hóa',
+      'nhận hàng 24/7',
+      'theo dõi hành trình GPS',
+      'hỗ trợ bốc xếp',
+    ],
+    tagPool: ['shop online', 'doanh nghiệp', 'nhà vườn, nông sản', 'đại lý, cửa hàng', 'khách gửi hàng cá nhân'],
+    basePriceRange: { 'Bình dân': [50000, 500000], 'Trung cấp': [500000, 3000000], 'Cao cấp': [3000000, 25000000] },
+    brandPool: ['Chành xe Phúc An', 'Vận tải Thành Đạt', 'Nhà xe Tín Phát', 'Logistics Hưng Thịnh'],
+    unit: 'Đơn',
+    weightRangeGrams: [1000, 30000],
+    attributePresets: [
+      { name: 'Hình thức nhận hàng', values: ['Lấy hàng tận nơi', 'Gửi tại kho Đồng Nai'] },
+      { name: 'Thanh toán cước', values: ['Người gửi trả', 'Người nhận trả'] },
+    ],
+    descriptionKind: 'logistics',
+  },
   'Thể thao - Dịch vụ': {
     category: 'Thể thao - Dịch vụ',
     nouns: [
@@ -1032,12 +1534,29 @@ export const PRICE_RANGE_CEILING = 50_000_000
  * (VD: "Thiết bị điện gia dụng" nên rơi vào Thiết bị điện, không phải Đồ gia dụng).
  */
 const INDUSTRY_KEYWORDS: [Industry, string[]][] = [
+  // Đứng đầu: tên tuyến ("Đồng Nai – Bảo Lộc, Đơn Dương, Đà Lạt") không chứa từ khóa ngành nào khác.
+  ['Vận tải - Gửi hàng, Chành xe', ['vận chuyển', 'vận tải', 'gửi hàng', 'chành xe', 'nhà xe', 'bao chuyến', 'hàng ghép', 'hàng lẻ', 'tuyến', 'đồng nai']],
   // Đứng trước Thời trang ("áo" trong "tủ quần áo"), Mỹ phẩm ("da" trong "sofa da"), Đồ gia dụng ("bếp" trong "tủ bếp").
   [
     'Thiết kế - Thi công nội thất',
     ['thi công', 'thiết kế nội thất', 'sofa', 'bàn ăn', 'ghế ăn', 'bàn trà', 'kệ tivi', 'giường', 'tủ quần áo', 'tủ bếp', 'tủ giày', 'phòng ăn'],
   ],
+  // Trước Hóa phẩm ("nhà tắm") và Thiết bị điện ("điều hòa") — tên danh mục kiểu "Phụ kiện nhà tắm", "Quạt/ điều hòa".
+  [
+    'Thiết bị vệ sinh - Nhà tắm',
+    ['thiết bị vệ sinh', 'thiết bị nhà tắm', 'phụ kiện nhà tắm', 'thoát sàn', 'gương nhà tắm', 'gương phòng tắm', 'bình nóng lạnh', 'máy nước nóng', 'quạt/', 'quạt /'],
+  ],
+  // Sau Thiết kế - Thi công ("tủ bếp" vẫn là thi công nội thất), trước Đồ gia dụng ("bếp").
+  [
+    'Thiết bị nhà bếp',
+    ['thiết bị nhà bếp', 'thiết bị bếp', 'nhà bếp', 'bếp từ', 'bếp điện', 'bếp gas', 'hút mùi', 'lò nướng', 'lò vi sóng', 'rửa bát', 'rửa chén', 'chậu rửa', 'vòi rửa', 'lọc nước', 'nồi', 'chảo', 'máy xay', 'máy ép', 'ấm siêu tốc'],
+  ],
   ['Studio - Chụp ảnh & Quay phim', ['studio', 'chụp ảnh', 'quay phim', 'quay video', 'nhiếp ảnh', 'ảnh cưới', 'album', 'photobook']],
+  // Trước Công nghệ (cũng có "âm thanh"). "loa" chỉ khớp nguyên từ (xem keywordMatches) — tránh khớp nhầm "loại".
+  [
+    'Âm thanh - Loa, Micro, Tai nghe',
+    ['loa', 'micro', 'tai nghe', 'âm thanh', 'vang số', 'karaoke', 'soundbar', 'mixer', 'jbl', 'harman kardon', 'acnos', 'kadma', 'alpha works'],
+  ],
   [
     'Hóa phẩm - Vệ sinh nhà cửa',
     ['hóa phẩm', 'tẩy rửa', 'vệ sinh nhà', 'nhà cửa', 'nước lau', 'lau sàn', 'lau kính', 'rửa chén', 'rửa bát', 'nước giặt', 'nước xả', 'xả vải', 'giặt xả', 'nhà tắm', 'phòng tắm', 'bồn cầu', 'khử mùi'],
@@ -1068,13 +1587,21 @@ const INDUSTRY_KEYWORDS: [Industry, string[]][] = [
  */
 export function matchIndustryFromName(name: string, preferred?: string): Industry | null {
   const lower = name.toLowerCase()
-  if (preferred && INDUSTRY_KEYWORDS.some(([industry, keywords]) => industry === preferred && keywords.some((kw) => lower.includes(kw)))) {
+  if (preferred && INDUSTRY_KEYWORDS.some(([industry, keywords]) => industry === preferred && keywords.some((kw) => keywordMatches(lower, kw)))) {
     return preferred as Industry
   }
   for (const [industry, keywords] of INDUSTRY_KEYWORDS) {
-    if (keywords.some((kw) => lower.includes(kw))) return industry
+    if (keywords.some((kw) => keywordMatches(lower, kw))) return industry
   }
   return null
+}
+
+/** Từ khóa cần khớp NGUYÊN TỪ thay vì chuỗi con — VD "loa" không được khớp "loại" ("Các loại hạt"). */
+const WHOLE_WORD_KEYWORDS = new Set(['loa'])
+
+function keywordMatches(lowerName: string, keyword: string): boolean {
+  if (!WHOLE_WORD_KEYWORDS.has(keyword)) return lowerName.includes(keyword)
+  return lowerName.split(VIETNAMESE_WORD_SPLIT).includes(keyword)
 }
 
 /** Từ ngắn/chung chung, bỏ qua khi so khớp tên danh mục với loại sản phẩm cụ thể — tránh khớp nhầm (VD "nam" trong rất nhiều tên). */
@@ -1202,6 +1729,41 @@ function applyGenderOverride(
  * VD "tôm, cua, cá, hải sản"). Khớp qua 2 kênh: (1) cụm từ trong tên noun trùng với văn bản, (2) `nounTags`
  * của noun trùng với văn bản (bắt các từ quá ngắn để lọt qua extractPhrases, VD "cá", "cua").
  */
+/** Tên danh mục trùng đúng tên 1 thương hiệu khai báo trong `brandNouns` (không phân biệt hoa/thường) → trả về thương hiệu đó. */
+function brandFromCollection(template: Template, collectionName?: string): string | null {
+  const key = collectionName?.trim().toLowerCase()
+  if (!key || !template.brandNouns) return null
+  return Object.keys(template.brandNouns).find((b) => b.toLowerCase() === key) ?? null
+}
+
+/** Danh sách loại sản phẩm khớp CHÍNH XÁC tên danh mục / thương hiệu — null nếu template không khai báo hoặc không khớp. */
+/** Chuẩn hóa tên danh mục để so khớp: viết thường, thống nhất dấu thanh, gạch nối (– — -) và khoảng trắng. */
+function collectionKey(name: string): string {
+  return normalizeVietnameseTone(name.trim().toLowerCase())
+    .replace(/\s*[-–—]\s*/g, ' - ')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ')
+}
+
+function exactCollectionNouns(template: Template, collectionName?: string): number[] | null {
+  const key = collectionKey(collectionName ?? '')
+  if (!key) return null
+  const byCollection = Object.entries(template.collectionNouns ?? {}).find(([name]) => collectionKey(name) === key)?.[1]
+  if (byCollection) return byCollection
+  const brand = brandFromCollection(template, collectionName)
+  return brand ? template.brandNouns![brand] : null
+}
+
+/** Chọn thương hiệu cho 1 loại sản phẩm: danh mục thương hiệu → đúng hãng đó; không thì xoay vòng trong các hãng có bán loại này. */
+function brandForNoun(template: Template, nounIndex: number, variant: number, seed: number, collectionName?: string): string {
+  const collectionBrand = brandFromCollection(template, collectionName)
+  if (collectionBrand) return collectionBrand
+  const compatible = Object.entries(template.brandNouns ?? {})
+    .filter(([, nouns]) => nouns.includes(nounIndex))
+    .map(([brand]) => brand)
+  return compatible.length > 0 ? compatible[variant % compatible.length] : pick(template.brandPool, seed + 3)
+}
+
 function relevantNounIndices(template: Template, matchText: string): number[] {
   const allIndices = template.nouns.map((_, i) => i)
   const textPhrases = extractPhrases(matchText)
@@ -1272,7 +1834,7 @@ function capitalizeFirst(text: string): string {
  */
 const DESCRIPTION_COPY: Record<
   NonNullable<Template['descriptionKind']>,
-  { quality: (noun: string) => string; policy: string; policyHeading?: string }
+  { quality: (noun: string) => string; policy: string; policyHeading?: string; intro?: (noun: string, adjective: string, brand: string) => string }
 > = {
   durable: {
     quality: (noun) => `${noun} được chọn lọc kỹ về chất liệu và độ hoàn thiện, phù hợp dùng hàng ngày lẫn làm quà tặng.`,
@@ -1293,6 +1855,15 @@ const DESCRIPTION_COPY: Record<
     policy:
       'Đặt cọc 30% để giữ lịch, thanh toán phần còn lại khi nhận sản phẩm; miễn phí chỉnh sửa lại theo góp ý trong 7 ngày sau khi giao file, hỗ trợ dời lịch 1 lần nếu báo trước 3 ngày.',
     policyHeading: 'Chính sách đặt lịch &amp; chỉnh sửa',
+  },
+  logistics: {
+    quality: (noun) =>
+      `${noun}: nhận hàng đúng hẹn, đóng gói, chằng buộc cẩn thận theo từng loại hàng, báo giá cước rõ ràng trước khi gửi và cập nhật tình trạng đơn cho khách suốt hành trình.`,
+    policy:
+      'Đền bù theo giá trị khai báo nếu hàng hư hỏng, thất lạc do lỗi vận chuyển; hàng có giá trị cao nên mua thêm bảo hiểm hàng hóa. Hỗ trợ thu hộ (COD) và giao lại miễn phí nếu người nhận vắng mặt lần đầu.',
+    policyHeading: 'Chính sách đền bù &amp; giao nhận',
+    intro: (noun, adjective, brand) =>
+      `${noun} ${adjective} do ${brand} khai thác — xe chạy cố định theo lịch, nhận hàng tại kho Đồng Nai hoặc lấy tận nơi, giao tới tận tay người nhận.`,
   },
   cosmetics: {
     quality: (noun) => `${noun} được chọn lọc kỹ về thành phần và nguồn gốc, phù hợp dùng hàng ngày lẫn làm quà tặng.`,
@@ -1333,7 +1904,9 @@ function buildDescriptionHtml(
   const copy = DESCRIPTION_COPY[template.descriptionKind ?? 'durable']
 
   return [
-    `<p>${noun} ${primaryAdjective} từ ${brand} — lựa chọn đáng cân nhắc, mang lại sự cân bằng giữa chất lượng, thẩm mỹ và mức giá hợp lý.</p>`,
+    copy.intro
+      ? `<p>${copy.intro(noun, primaryAdjective, brand)}</p>`
+      : `<p>${noun} ${primaryAdjective} từ ${brand} — lựa chọn đáng cân nhắc, mang lại sự cân bằng giữa chất lượng, thẩm mỹ và mức giá hợp lý.</p>`,
     extraPrompt.trim() ? `<p><strong>Theo yêu cầu riêng:</strong> ${extraPrompt.trim()}.</p>` : '',
     featureBullets.length > 0 ? `<h2>Điểm nổi bật</h2><ul>${featureBulletsHtml}</ul>` : '',
     `<h2>Thông tin chi tiết</h2><ul>${attributeBulletsHtml}</ul>`,
@@ -1409,13 +1982,16 @@ export function generateMockProduct(
   // Gộp tên danh mục + yêu cầu bổ sung khi lọc loại sản phẩm phù hợp — người dùng hay gõ thẳng loại sản
   // phẩm cụ thể vào ô "Yêu cầu bổ sung" thay vì chỉ đặt tên danh mục (xem relevantNounIndices()).
   const matchText = `${collectionName ?? ''} ${extraPrompt}`.trim()
-  const candidateIndices = matchText ? relevantNounIndices(template, matchText) : template.nouns.map((_, i) => i)
+  const candidateIndices =
+    exactCollectionNouns(template, collectionName) ??
+    (matchText ? relevantNounIndices(template, matchText) : template.nouns.map((_, i) => i))
 
   const requestText = `${collectionName ?? ''} ${extraPrompt}`
   const buildName = (variant: number) => {
     const { nounIndex, adjective } = pickVariant(template, candidateIndices, variant)
     const { noun, imageKeyword } = applyGenderOverride(template.nouns[nounIndex], template.nounKeywords[nounIndex], requestText)
-    return { noun, imageKeyword, adjective, name: `${noun} ${adjective}` }
+    const brand = brandForNoun(template, nounIndex, variant, seed, collectionName)
+    return { noun, imageKeyword, adjective, brand, nounIndex, name: template.brandInName ? `${noun} ${brand} ${adjective}` : `${noun} ${adjective}` }
   }
 
   const primarySpace = candidateIndices.length * template.adjectives.length
@@ -1428,12 +2004,17 @@ export function generateMockProduct(
   for (let attempt = 1; options.usedNames?.has(picked.name.toLowerCase()) && attempt < maxAttempts; attempt++) {
     picked = buildName(variantFor(ordinal + attempt))
   }
-  const { noun, imageKeyword, adjective, name } = picked
+  const { noun, imageKeyword, adjective, name, brand, nounIndex } = picked
   options.usedNames?.add(name.toLowerCase())
 
   // Đảm bảo max >= min dù người dùng kéo 2 tay cầm sát nhau hoặc lệch thứ tự — tránh Math.random() nhân với số âm.
-  const lo = Math.min(priceMin, priceMax)
-  const hi = Math.max(priceMin, priceMax, lo + 1)
+  let lo = Math.min(priceMin, priceMax)
+  let hi = Math.max(priceMin, priceMax, lo + 1)
+  const nounRange = template.nounPriceRanges?.[nounIndex]
+  if (nounRange) {
+    const [nLo, nHi] = nounRange
+    ;[lo, hi] = Math.max(lo, nLo) < Math.min(hi, nHi) ? [Math.max(lo, nLo), Math.min(hi, nHi)] : [nLo, nHi]
+  }
   const price = roundPrice(lo + Math.random() * (hi - lo))
   const discountPct = 0.1 + Math.random() * 0.25
   const compareAtPrice = roundPrice(price * (1 + discountPct))
@@ -1452,7 +2033,6 @@ export function generateMockProduct(
   tags.unshift(...extraTags)
 
   const shortDescription = `${noun} ${adjective}.`
-  const brand = pick(template.brandPool, seed + 3)
 
   return {
     id: `draft-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1470,9 +2050,8 @@ export function generateMockProduct(
     category: template.category,
     brand,
     collection: collectionName ?? '',
-    // Tag hệ thống (KHÔNG phải tag marketing bịa ra) — để nhận diện + xóa hàng loạt sau này qua nút "Xóa dữ
-    // liệu demo cũ" (xem backend/routes/cleanup.ts). Không đụng tới costPrice/barcode (vẫn để trống).
-    tags: ['demo'],
+    // Không gắn tag — nút "Xóa dữ liệu demo cũ" nhận ra sản phẩm qua id backend ghi lại (backend/src/createdItems.ts).
+    tags: [],
     warehouseLocation: 'Cửa hàng chính',
     manageStock: true,
     allowNegativeStock: false,

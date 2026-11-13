@@ -8,6 +8,7 @@ import { ConnectStoreScreen } from './components/ConnectStoreScreen'
 import { EditArticleModal } from './components/EditArticleModal'
 import { EditProductModal } from './components/EditProductModal'
 import { EmptyState } from './components/EmptyState'
+import { JobConfigPanel } from './components/JobConfigPanel'
 import { formatVnd } from './format'
 import { ProductCard } from './components/ProductCard'
 import { ProductListRow } from './components/ProductListRow'
@@ -16,11 +17,14 @@ import { ProductToolbar } from './components/ProductToolbar'
 import { ResultsHeader } from './components/ResultsHeader'
 import { generateMockProduct, getPriceRangeBounds, slugifySku } from './mockGenerate'
 import { buildGalleryContentHtml, generateMockArticle, isGalleryBlog } from './mockGenerateArticle'
+import { defaultJobDeadline, generateMockJob } from './mockGenerateJob'
 import {
   BACKEND_URL,
   connectStore,
   deleteDemoData,
   fetchProductImageUrls,
+  fetchArticleTemplates,
+  type ArticleTemplateList,
   fetchStoreBlogs,
   fetchStoreCollections,
   fetchStoreOwnerName,
@@ -33,7 +37,8 @@ import {
   type SapoBlog,
   type SapoCollection,
 } from './sapoApi'
-import type { AppMode, Article, ArticleGenerationConfig, ConnectionStatus, GenerationConfig, Product, ViewMode } from './types'
+import type { AppMode, Article, ArticleGenerationConfig, ConnectionStatus, GenerationConfig, JobGenerationConfig, Product, ViewMode } from './types'
+import { AUTO_TOPIC, topicForBlog } from './types'
 
 const GENERATION_BATCH_SIZE = 5
 
@@ -172,6 +177,8 @@ export default function App() {
     extraPrompt: '',
     publishNow: false,
     imageAspectRatio: '1:1',
+    tags: '',
+    templateLayout: '',
   }))
   const [articles, setArticles] = useState<Article[]>([])
   const [isGeneratingArticles, setIsGeneratingArticles] = useState(false)
@@ -188,14 +195,38 @@ export default function App() {
   const [isDeletingDemoData, setIsDeletingDemoData] = useState(false)
   const [deleteDemoMessage, setDeleteDemoMessage] = useState<string | null>(null)
 
+  const [jobConfig, setJobConfig] = useState<JobGenerationConfig>(() => ({
+    quantity: 5,
+    location: 'Tự động',
+    deadline: defaultJobDeadline(),
+    blogName: 'Tuyển dụng',
+    publishNow: false,
+    imageAspectRatio: '16:9',
+    tags: '',
+    templateLayout: '',
+  }))
+  const [articleTemplates, setArticleTemplates] = useState<ArticleTemplateList>({ templates: [], source: 'none' })
+
   const stage: Stage = connectionStatus !== 'connected' ? 'connect' : 'generator'
 
+  // Tab Tin tức và tab Tuyển dụng dùng chung danh sách `articles` (cùng cách đăng lên Sapo), chỉ lọc hiển thị theo `kind`.
+  const isJobsMode = mode === 'jobs'
+  const visibleArticles = articles.filter((a) => (a.kind === 'job') === isJobsMode)
+  const jobCount = articles.filter((a) => a.kind === 'job').length
+  const newsCount = articles.length - jobCount
+  const visibleRatio = isJobsMode ? jobConfig.imageAspectRatio : articleConfig.imageAspectRatio
+
+  function switchMode(next: AppMode) {
+    setMode(next)
+    setSelectedArticleIds(new Set())
+  }
+
   /**
-   * Xóa hẳn toàn bộ sản phẩm + bài viết demo (tag `demo`) của store đang kết nối khỏi Sapo — hành động
+   * Xóa hẳn toàn bộ sản phẩm + bài viết tool đã đăng (backend ghi lại id) của store đang kết nối khỏi Sapo — hành động
    * không thể hoàn tác nên bắt xác nhận trước (xem sapoApi.ts:deleteDemoData).
    */
   async function handleDeleteDemoData() {
-    if (!window.confirm(`Xóa HẲN toàn bộ sản phẩm và bài viết demo (gắn tag "demo") khỏi ${config.storeUrl}?\n\nKhông thể hoàn tác.`)) {
+    if (!window.confirm(`Xóa HẲN toàn bộ sản phẩm và bài viết đã đăng từ tool này khỏi ${config.storeUrl}?\n\nKhông thể hoàn tác.`)) {
       return
     }
     setIsDeletingDemoData(true)
@@ -221,6 +252,12 @@ export default function App() {
     const result = await fetchStoreBlogs(storeUrl)
     setBlogs(result)
     setBlogsLoading(false)
+    const templateList = await fetchArticleTemplates(storeUrl)
+    setArticleTemplates(templateList)
+    const templates = templateList.templates
+    // Store có sẵn khung riêng cho tin tuyển dụng (VD "article.careers") → chọn sẵn cho tab Tuyển dụng.
+    const jobTemplate = templates.find((t) => /career|job|tuyen|recruit/i.test(t))
+    if (jobTemplate) setJobConfig((c) => (c.templateLayout ? c : { ...c, templateLayout: jobTemplate }))
   }
 
   /** Đánh dấu 1 store là đã kết nối (Private App hoặc OAuth đều gọi hàm này) — set config, lưu localStorage, tải danh mục/blog/tên chủ store. */
@@ -495,7 +532,7 @@ export default function App() {
 
   async function handleGenerateArticles() {
     const quantity = articleConfig.quantity
-    const startCount = articles.length
+    const startCount = newsCount
     const target = startCount + quantity
     const chosenBlogs = blogs.filter((b) => selectedBlogIds.includes(b.id))
 
@@ -506,13 +543,23 @@ export default function App() {
     // Blog Album / bài dự án: nối bộ ảnh vào cuối nội dung ngay khi tạo nháp (không đợi lúc đăng) để mở bài ra đã thấy sẵn ảnh.
     function fillGalleryContent(article: Article) {
       if (!article.appendGallery || article.content.includes('<img')) return
-      fetchProductImageUrls(article.imageKeyword, article.id, 10, articleConfig.imageAspectRatio).then((urls) => {
+      fetchProductImageUrls(article.imageKeyword, article.id, 10, articleConfig.imageAspectRatio, false).then((urls) => {
         if (urls.length === 0) return
         const gallery = buildGalleryContentHtml(urls, article.title)
         setArticles((prev) =>
           prev.map((a) => (a.id === article.id && !a.content.includes('<img') ? { ...a, content: [a.content, gallery].filter(Boolean).join('\n') } : a)),
         )
       })
+    }
+
+    // Tag do người dùng tự nhập thay cho tag tự sinh. Nút "Xóa dữ liệu demo" nhận ra bài viết qua id backend đã ghi lại, không cần tag.
+    const userTags = articleConfig.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+    const articleTags = [...new Set(userTags)]
+    function finalizeArticle(article: Article): Article {
+      return { ...article, tags: articleTags, ...(storeOwnerName ? { author: storeOwnerName } : {}) }
     }
 
     setIsGeneratingArticles(true)
@@ -525,7 +572,8 @@ export default function App() {
       const batchStartIndex = startCount + done
 
       const result = await generateArticlesBatch({
-        topic: articleConfig.topic,
+        // "Tự động theo tên blog": AI sinh theo lô nên lấy chủ đề theo blog của bài đầu lô.
+        topic: articleConfig.topic === AUTO_TOPIC ? topicForBlog(blogForIndex(batchStartIndex), articleConfig.industry) : articleConfig.topic,
         industry: articleConfig.industry,
         tone: articleConfig.tone,
         extraPrompt: articleConfig.extraPrompt,
@@ -534,11 +582,10 @@ export default function App() {
 
       if (result.ok && result.articles) {
         setAiArticleUnavailable(false)
-        const newArticles = result.articles.map((content, i) => {
-          const article = buildArticleFromAi(content, batchStartIndex + i, blogForIndex(batchStartIndex + i))
-          // Dùng tên chủ store thật (Sapo: store_owner) làm tác giả thay vì tên AI tự bịa.
-          return storeOwnerName ? { ...article, author: storeOwnerName } : article
-        })
+        // Dùng tên chủ store thật (Sapo: store_owner) làm tác giả thay vì tên AI tự bịa; tag theo ô người dùng nhập.
+        const newArticles = result.articles.map((content, i) =>
+          finalizeArticle(buildArticleFromAi(content, batchStartIndex + i, blogForIndex(batchStartIndex + i))),
+        )
         setArticles((prev) => [...prev, ...newArticles])
         newArticles.forEach(fillGalleryContent)
       } else {
@@ -548,15 +595,17 @@ export default function App() {
         for (let i = 0; i < batchSize; i++) {
           await delay(200 + Math.random() * 200)
           const globalIndex = batchStartIndex + i
-          const article = generateMockArticle(
-            articleConfig.topic,
-            articleConfig.tone,
-            articleConfig.extraPrompt,
-            globalIndex,
-            articleConfig.industry,
-            blogForIndex(globalIndex),
+          const article = finalizeArticle(
+            generateMockArticle(
+              articleConfig.topic,
+              articleConfig.tone,
+              articleConfig.extraPrompt,
+              globalIndex,
+              articleConfig.industry,
+              blogForIndex(globalIndex),
+            ),
           )
-          setArticles((prev) => [...prev, storeOwnerName ? { ...article, author: storeOwnerName } : article])
+          setArticles((prev) => [...prev, article])
           fillGalleryContent(article)
         }
       }
@@ -569,21 +618,39 @@ export default function App() {
     setArticleProgress(null)
   }
 
+  async function handleGenerateJobs() {
+    const quantity = jobConfig.quantity
+    const startCount = jobCount
+    setIsGeneratingArticles(true)
+    setArticleProgress({ done: startCount, total: startCount + quantity })
+    for (let i = 0; i < quantity; i++) {
+      await delay(150 + Math.random() * 150)
+      const job = generateMockJob(startCount + i, jobConfig)
+      setArticles((prev) => [...prev, job])
+      setArticleProgress({ done: startCount + i + 1, total: startCount + quantity })
+    }
+    setIsGeneratingArticles(false)
+    setArticleProgress(null)
+  }
+
   async function postArticle(id: string) {
     const article = articles.find((a) => a.id === id)
     if (!article) return
 
     setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'posting', errorReason: undefined } : a)))
 
+    const ratio = article.kind === 'job' ? jobConfig.imageAspectRatio : articleConfig.imageAspectRatio
+    const publishNow = article.kind === 'job' ? jobConfig.publishNow : articleConfig.publishNow
+    const templateLayout = article.kind === 'job' ? jobConfig.templateLayout : articleConfig.templateLayout
     // Bài viết Sapo chỉ nhận 1 ảnh đại diện (khác sản phẩm nhận nhiều ảnh) — chỉ lấy 1 ảnh thật.
-    const imageUrls = await fetchProductImageUrls(article.imageKeyword, article.id, 1, articleConfig.imageAspectRatio)
+    const imageUrls = await fetchProductImageUrls(article.imageKeyword, article.id, 1, ratio, false)
     // Lúc tạo nháp chưa tìm được ảnh (lỗi mạng, hết hạn mức) → thử nối bộ ảnh lại lần nữa trước khi đăng.
     const galleryContent =
       article.appendGallery && !article.content.includes('<img')
         ? [
             article.content,
             buildGalleryContentHtml(
-              await fetchProductImageUrls(article.imageKeyword, article.id, 10, articleConfig.imageAspectRatio),
+              await fetchProductImageUrls(article.imageKeyword, article.id, 10, ratio, false),
               article.title,
             ),
           ]
@@ -600,7 +667,8 @@ export default function App() {
         excerpt: article.excerpt,
         tags: article.tags,
         imageUrls,
-        publishNow: articleConfig.publishNow,
+        publishNow,
+        templateLayout,
       },
       // Chưa chọn blog nào → mặc định "Tin tức", vì mọi store Sapo đều có sẵn blog này.
       article.blog || 'Tin tức',
@@ -645,7 +713,7 @@ export default function App() {
   }
 
   async function handlePostAllArticles() {
-    await postManyArticles(articles.filter((a) => a.status === 'draft' || a.status === 'error').map((a) => a.id))
+    await postManyArticles(visibleArticles.filter((a) => a.status === 'draft' || a.status === 'error').map((a) => a.id))
   }
 
   async function handlePostSelectedArticles() {
@@ -674,7 +742,7 @@ export default function App() {
   }
 
   function toggleSelectAllArticles() {
-    setSelectedArticleIds((prev) => (prev.size === articles.length ? new Set() : new Set(articles.map((a) => a.id))))
+    setSelectedArticleIds((prev) => (prev.size === visibleArticles.length ? new Set() : new Set(visibleArticles.map((a) => a.id))))
   }
 
   function deleteSelectedArticles() {
@@ -716,11 +784,11 @@ export default function App() {
   const hasSelectedPostable = products.some((p) => selectedIds.has(p.id) && (p.status === 'draft' || p.status === 'error'))
   const allSelected = products.length > 0 && selectedIds.size === products.length
 
-  const createdArticleCount = articles.length
+  const createdArticleCount = visibleArticles.length
   const targetArticleTotal = articleProgress?.total ?? createdArticleCount
-  const hasPostableArticles = articles.some((a) => a.status === 'draft' || a.status === 'error')
-  const hasSelectedPostableArticles = articles.some((a) => selectedArticleIds.has(a.id) && (a.status === 'draft' || a.status === 'error'))
-  const allArticlesSelected = articles.length > 0 && selectedArticleIds.size === articles.length
+  const hasPostableArticles = visibleArticles.some((a) => a.status === 'draft' || a.status === 'error')
+  const hasSelectedPostableArticles = visibleArticles.some((a) => selectedArticleIds.has(a.id) && (a.status === 'draft' || a.status === 'error'))
+  const allArticlesSelected = visibleArticles.length > 0 && selectedArticleIds.size === visibleArticles.length
 
   return (
     <div className="flex min-h-screen flex-col bg-[#E9ECF1] dark:bg-slate-950">
@@ -749,7 +817,7 @@ export default function App() {
                 onClick={() => void handleDeleteDemoData()}
                 disabled={isDeletingDemoData}
                 className="h-[38px] rounded-lg border border-slate-300 px-3.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                title='Xóa toàn bộ sản phẩm + bài viết đã đăng từ tool này (gắn tag "demo") khỏi Sapo'
+                title='Xóa toàn bộ sản phẩm + bài viết đã đăng từ tool này khỏi Sapo'
               >
                 {isDeletingDemoData ? 'Đang xóa...' : 'Xóa dữ liệu demo cũ'}
               </button>
@@ -762,7 +830,7 @@ export default function App() {
         <div className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="mx-auto flex max-w-[1440px] items-center gap-5 px-4 sm:px-6">
             <button
-              onClick={() => setMode('products')}
+              onClick={() => switchMode('products')}
               className={`flex items-center gap-1.5 py-3 text-sm transition ${
                 mode === 'products'
                   ? 'font-semibold text-slate-900 shadow-[inset_0_-2px_0_#007AFF] dark:text-slate-100'
@@ -772,18 +840,25 @@ export default function App() {
               Sản phẩm <span className="font-normal text-slate-400">{products.length}</span>
             </button>
             <button
-              onClick={() => setMode('articles')}
+              onClick={() => switchMode('articles')}
               className={`flex items-center gap-1.5 py-3 text-sm transition ${
                 mode === 'articles'
                   ? 'font-semibold text-slate-900 shadow-[inset_0_-2px_0_#007AFF] dark:text-slate-100'
                   : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              Tin tức <span className="font-normal text-slate-400">{articles.length}</span>
+              Tin tức <span className="font-normal text-slate-400">{newsCount}</span>
             </button>
-            <span className="ml-auto rounded bg-[#FFF4E0] px-2 py-0.5 font-mono text-xs font-semibold text-[#A15C00] dark:bg-amber-500/10 dark:text-amber-400">
-              tag: demo
-            </span>
+            <button
+              onClick={() => switchMode('jobs')}
+              className={`flex items-center gap-1.5 py-3 text-sm transition ${
+                mode === 'jobs'
+                  ? 'font-semibold text-slate-900 shadow-[inset_0_-2px_0_#007AFF] dark:text-slate-100'
+                  : 'font-normal text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              Tuyển dụng <span className="font-normal text-slate-400">{jobCount}</span>
+            </button>
           </div>
         </div>
       )}
@@ -897,9 +972,9 @@ export default function App() {
         </main>
       )}
 
-      {stage === 'generator' && mode === 'articles' && (
+      {stage === 'generator' && (mode === 'articles' || mode === 'jobs') && (
         <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-6">
-          {aiArticleUnavailable && (
+          {aiArticleUnavailable && !isJobsMode && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-400">
               <span>⚠️</span>
               <div>
@@ -913,23 +988,35 @@ export default function App() {
           )}
 
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
-            <ArticleConfigPanel
-              config={articleConfig}
-              onChange={setArticleConfig}
-              onSubmit={handleGenerateArticles}
-              isGenerating={isGeneratingArticles}
-              progress={articleProgress}
-              blogs={blogs}
-              blogsLoading={blogsLoading}
-              selectedBlogIds={selectedBlogIds}
-              onToggleBlog={toggleBlog}
-              onAddBlog={addBlog}
-            />
+            {isJobsMode ? (
+              <JobConfigPanel
+                config={jobConfig}
+                onChange={setJobConfig}
+                onSubmit={() => void handleGenerateJobs()}
+                isGenerating={isGeneratingArticles}
+                progress={articleProgress}
+                templates={articleTemplates}
+              />
+            ) : (
+              <ArticleConfigPanel
+                config={articleConfig}
+                onChange={setArticleConfig}
+                onSubmit={handleGenerateArticles}
+                isGenerating={isGeneratingArticles}
+                progress={articleProgress}
+                blogs={blogs}
+                blogsLoading={blogsLoading}
+                selectedBlogIds={selectedBlogIds}
+                onToggleBlog={toggleBlog}
+                onAddBlog={addBlog}
+                templates={articleTemplates}
+              />
+            )}
 
             <section className="flex min-w-0 flex-col gap-4">
-              {articles.length > 0 && (
+              {visibleArticles.length > 0 && (
                 <ProductToolbar
-                  totalCount={articles.length}
+                  totalCount={visibleArticles.length}
                   selectedCount={selectedArticleIds.size}
                   allSelected={allArticlesSelected}
                   onToggleSelectAll={toggleSelectAllArticles}
@@ -941,20 +1028,28 @@ export default function App() {
                 />
               )}
 
-              {articles.length === 0 && !isGeneratingArticles ? (
-                <EmptyState
-                  icon="📰"
-                  title='Điền thông tin bên trên và bấm "Tạo bài viết" để bắt đầu'
-                  subtitle="AI sẽ sinh tiêu đề, nội dung, tag và ảnh minh họa cho từng bài viết — chỉ trong vài giây."
-                />
+              {visibleArticles.length === 0 && !isGeneratingArticles ? (
+                isJobsMode ? (
+                  <EmptyState
+                    icon="💼"
+                    title='Bấm "Tạo tin tuyển dụng" để bắt đầu'
+                    subtitle="Mỗi tin là 1 vị trí ngành Thiết kế - Thi công nội thất, gắn sẵn tag loc/type/salary/exp/qty/deadline."
+                  />
+                ) : (
+                  <EmptyState
+                    icon="📰"
+                    title='Điền thông tin bên trên và bấm "Tạo bài viết" để bắt đầu'
+                    subtitle="AI sẽ sinh tiêu đề, nội dung, tag và ảnh minh họa cho từng bài viết — chỉ trong vài giây."
+                  />
+                )
               ) : articleViewMode === 'grid' ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {articles.map((article, index) => (
+                  {visibleArticles.map((article, index) => (
                     <ArticleCard
                       key={article.id}
                       article={article}
                       index={index}
-                      aspectRatio={articleConfig.imageAspectRatio}
+                      aspectRatio={visibleRatio}
                       selected={selectedArticleIds.has(article.id)}
                       onToggleSelect={() => toggleSelectArticle(article.id)}
                       onEdit={() => setEditingArticle(article)}
@@ -965,11 +1060,11 @@ export default function App() {
                 </div>
               ) : articleViewMode === 'list' ? (
                 <div className="flex flex-col gap-3">
-                  {articles.map((article) => (
+                  {visibleArticles.map((article) => (
                     <ArticleListRow
                       key={article.id}
                       article={article}
-                      aspectRatio={articleConfig.imageAspectRatio}
+                      aspectRatio={visibleRatio}
                       selected={selectedArticleIds.has(article.id)}
                       onToggleSelect={() => toggleSelectArticle(article.id)}
                       onEdit={() => setEditingArticle(article)}
@@ -980,8 +1075,8 @@ export default function App() {
                 </div>
               ) : (
                 <ArticleTable
-                  articles={articles}
-                  aspectRatio={articleConfig.imageAspectRatio}
+                  articles={visibleArticles}
+                  aspectRatio={visibleRatio}
                   selectedIds={selectedArticleIds}
                   allSelected={allArticlesSelected}
                   onToggleSelect={toggleSelectArticle}
@@ -992,7 +1087,7 @@ export default function App() {
                 />
               )}
 
-              {articles.length > 0 && (
+              {visibleArticles.length > 0 && (
                 <ResultsHeader
                   total={targetArticleTotal}
                   createdCount={createdArticleCount}
@@ -1023,7 +1118,7 @@ export default function App() {
         <EditArticleModal
           article={editingArticle}
           blogs={blogs}
-          imageAspectRatio={articleConfig.imageAspectRatio}
+          imageAspectRatio={editingArticle.kind === 'job' ? jobConfig.imageAspectRatio : articleConfig.imageAspectRatio}
           onClose={() => setEditingArticle(null)}
           onSave={(updated) => {
             setArticles((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))

@@ -6,7 +6,8 @@ import { saveConnection } from '../tokenStore.js'
 
 export const oauthRouter = Router()
 
-const SCOPE = 'read_products,write_products,read_content,write_content'
+// read_themes: để đọc danh sách khung giao diện bài viết (templates/article.*.bwt) của theme — xem fetchArticleTemplates().
+const SCOPE = 'read_products,write_products,read_content,write_content,read_themes'
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)

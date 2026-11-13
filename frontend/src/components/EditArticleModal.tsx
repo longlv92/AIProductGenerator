@@ -37,7 +37,7 @@ export function EditArticleModal({ article, blogs, imageAspectRatio, onSave, onC
   useEffect(() => {
     let cancelled = false
     setPreviewLoading(true)
-    fetchProductImageUrl(article.imageKeyword, article.id, imageAspectRatio).then((url) => {
+    fetchProductImageUrl(article.imageKeyword, article.id, imageAspectRatio, false).then((url) => {
       if (!cancelled) {
         setPreviewUrl(url)
         setPreviewLoading(false)
@@ -64,7 +64,7 @@ export function EditArticleModal({ article, blogs, imageAspectRatio, onSave, onC
               <img
                 src={previewUrl}
                 alt={draft.title}
-                className="h-20 w-20 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+                className="h-20 w-auto max-w-full rounded-lg border border-slate-200 object-contain dark:border-slate-700"
               />
             ) : (
               <p className="text-xs text-slate-400">

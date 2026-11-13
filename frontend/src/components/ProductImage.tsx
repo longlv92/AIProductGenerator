@@ -11,9 +11,11 @@ interface ProductImageProps {
   aspectRatio: ImageAspectRatio
   className?: string
   rounded?: string
+  /** false (bài viết): không cắt ảnh lệch tỉ lệ — cả ảnh tải lên lẫn hiển thị (object-contain). */
+  allowHeavyCrop?: boolean
 }
 
-export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, className = '', rounded = '' }: ProductImageProps) {
+export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, className = '', rounded = '', allowHeavyCrop = true }: ProductImageProps) {
   const [src, setSrc] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -24,7 +26,7 @@ export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, 
 
     async function resolve() {
       if (imageKeyword) {
-        const matched = await fetchProductImageUrl(imageKeyword, seed, aspectRatio)
+        const matched = await fetchProductImageUrl(imageKeyword, seed, aspectRatio, allowHeavyCrop)
         if (cancelled) return
         if (matched) {
           setSrc(matched)
@@ -39,7 +41,7 @@ export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, 
     return () => {
       cancelled = true
     }
-  }, [seed, imageKeyword, aspectRatio])
+  }, [seed, imageKeyword, aspectRatio, allowHeavyCrop])
 
   if (failed || !src) {
     return (
@@ -62,7 +64,7 @@ export function ProductImage({ seed, category, name, imageKeyword, aspectRatio, 
       alt={name}
       loading="lazy"
       onError={() => setFailed(true)}
-      className={`object-cover ${aspectRatioClass(aspectRatio)} ${rounded} ${className}`}
+      className={`${allowHeavyCrop ? 'object-cover' : 'bg-slate-100 object-contain dark:bg-slate-800'} ${aspectRatioClass(aspectRatio)} ${rounded} ${className}`}
     />
   )
 }

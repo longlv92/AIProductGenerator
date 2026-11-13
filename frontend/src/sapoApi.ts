@@ -224,6 +224,9 @@ interface RawPhoto {
   url: string
   /** Ảnh gốc chưa crop — dùng làm nguồn để cropImageUrl() cắt chính xác theo tỉ lệ đã chọn. */
   raw: string
+  /** Kích thước ảnh gốc (px) — để biết ảnh đã gần đúng tỉ lệ chưa, tránh cắt mất nhiều ảnh. */
+  width: number
+  height: number
 }
 
 const imageSearchCache = new Map<string, Promise<RawPhoto[]>>()
@@ -243,12 +246,25 @@ const CROP_SIZE_BY_RATIO: Record<ImageAspectRatio, { w: number; h: number }> = {
  * hiển thị trên giao diện vẫn được CSS `object-cover` tự crop vừa khung, chỉ ảnh THẬT đăng lên Sapo mới
  * không được crop sẵn đúng tỉ lệ trong trường hợp này. Không truyền aspectRatio → giữ nguyên ảnh gốc.
  */
-function cropImageUrl(rawUrl: string, aspectRatio?: ImageAspectRatio): string {
-  if (!aspectRatio || !rawUrl.includes('images.pexels.com')) return rawUrl
+function cropImageUrl(photo: RawPhoto, aspectRatio: ImageAspectRatio, allowHeavyCrop: boolean): string {
+  const rawUrl = photo.raw
   const { w, h } = CROP_SIZE_BY_RATIO[aspectRatio]
+  const target = w / h
+  const deviation = photo.width && photo.height ? Math.abs(photo.width / photo.height - target) / target : 1
+  const isPexels = rawUrl.includes('images.pexels.com')
   const separator = rawUrl.includes('?') ? '&' : '?'
+
+  // Ảnh gốc lệch tỉ lệ nhiều (VD ảnh 3:2 khi chọn 16:9) và nơi gọi không cho cắt mạnh (bài viết) → giữ NGUYÊN
+  // khung ảnh, chỉ thu nhỏ cho nhẹ — không cắt mất chủ thể. Ảnh gần đúng tỉ lệ (≤ 12%) thì cắt nhẹ cho khớp hẳn.
+  if (!allowHeavyCrop && deviation > MAX_GENTLE_CROP_DEVIATION) {
+    return isPexels ? `${rawUrl}${separator}auto=compress&cs=tinysrgb&w=${Math.max(w, h)}` : rawUrl
+  }
+  if (!isPexels) return rawUrl
   return `${rawUrl}${separator}auto=compress&cs=tinysrgb&fit=crop&w=${w}&h=${h}`
 }
+
+/** Độ lệch tỉ lệ tối đa vẫn cho cắt khi không cho cắt mạnh — khớp CLOSE_RATIO_DEVIATION ở backend/routes/images.ts. */
+const MAX_GENTLE_CROP_DEVIATION = 0.12
 
 /**
  * Tìm NHIỀU ảnh thật khớp `query` (từ khóa tiếng Anh) qua backend → Pexels
@@ -265,11 +281,20 @@ function cropImageUrl(rawUrl: string, aspectRatio?: ImageAspectRatio): string {
  * hướng kết quả tìm kiếm sang orientation phù hợp (xem backend/routes/images.ts) — không chỉ hiển thị
  * đúng tỉ lệ trên giao diện mà ảnh thật sự tải lên Sapo cũng đúng tỉ lệ đã chọn.
  */
-export async function fetchProductImageUrls(query: string, variationKey = '', count = 1, aspectRatio?: ImageAspectRatio): Promise<string[]> {
+export async function fetchProductImageUrls(
+  query: string,
+  variationKey = '',
+  count = 1,
+  aspectRatio?: ImageAspectRatio,
+  /** false (bài viết): ảnh lệch tỉ lệ nhiều giữ nguyên khung, không cắt. true (sản phẩm): luôn cắt đúng tỉ lệ cho đồng đều. */
+  allowHeavyCrop = true,
+  /** true: ảnh sản phẩm — bỏ ảnh có người. Mặc định theo allowHeavyCrop (true = luồng sản phẩm, false = luồng bài viết). */
+  productOnly = allowHeavyCrop,
+): Promise<string[]> {
   if (!query) return []
-  const cacheKey = `${query}::${aspectRatio ?? ''}`
+  const cacheKey = `${query}::${aspectRatio ?? ''}::${productOnly ? 'product' : 'any'}`
   if (!imageSearchCache.has(cacheKey)) {
-    imageSearchCache.set(cacheKey, fetchProductImageUrlsUncached(query, aspectRatio))
+    imageSearchCache.set(cacheKey, fetchProductImageUrlsUncached(query, aspectRatio, productOnly))
   }
   const photos = await imageSearchCache.get(cacheKey)!
   if (photos.length === 0) {
@@ -284,26 +309,32 @@ export async function fetchProductImageUrls(query: string, variationKey = '', co
   // Có aspectRatio → crop từ ảnh gốc cho đúng tỉ lệ. Không có → dùng sẵn large2x (nhẹ hơn ảnh gốc nhiều).
   return Array.from({ length: n }, (_, i) => {
     const photo = photos[(startIndex + i) % photos.length]
-    return aspectRatio ? cropImageUrl(photo.raw, aspectRatio) : photo.url
+    return aspectRatio ? cropImageUrl(photo, aspectRatio, allowHeavyCrop) : photo.url
   })
 }
 
 /** Tìm 1 ảnh thật khớp `query` — xem fetchProductImageUrls() (đây chỉ lấy ảnh đầu tiên). */
-export async function fetchProductImageUrl(query: string, variationKey = '', aspectRatio?: ImageAspectRatio): Promise<string | null> {
-  const urls = await fetchProductImageUrls(query, variationKey, 1, aspectRatio)
+export async function fetchProductImageUrl(
+  query: string,
+  variationKey = '',
+  aspectRatio?: ImageAspectRatio,
+  allowHeavyCrop = true,
+): Promise<string | null> {
+  const urls = await fetchProductImageUrls(query, variationKey, 1, aspectRatio, allowHeavyCrop)
   return urls[0] ?? null
 }
 
-async function fetchProductImageUrlsUncached(query: string, aspectRatio?: ImageAspectRatio): Promise<RawPhoto[]> {
+async function fetchProductImageUrlsUncached(query: string, aspectRatio: ImageAspectRatio | undefined, productOnly: boolean): Promise<RawPhoto[]> {
   try {
     const params = new URLSearchParams({ query })
     if (aspectRatio) params.set('aspectRatio', aspectRatio)
+    if (productOnly) params.set('productOnly', '1')
     const res = await fetch(`${BACKEND_URL}/api/image-search?${params}`, {
       signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) return []
-    const data = (await res.json()) as { photos?: Array<{ url: string; raw: string }> }
-    return data.photos?.map((p) => ({ url: p.url, raw: p.raw })) ?? []
+    const data = (await res.json()) as { photos?: Array<{ url: string; raw: string; width?: number; height?: number }> }
+    return data.photos?.map((p) => ({ url: p.url, raw: p.raw, width: p.width ?? 0, height: p.height ?? 0 })) ?? []
   } catch {
     return []
   }
@@ -388,6 +419,8 @@ export interface PostArticleInput {
   tags: string[]
   imageUrls?: string[]
   publishNow: boolean
+  /** Khung giao diện bài viết (template_layout) — để trống = mặc định. */
+  templateLayout?: string
 }
 
 export interface PostArticleResult {
@@ -516,6 +549,27 @@ export async function fetchStoreBlogs(storeUrl: string): Promise<SapoBlog[]> {
   }
 
   return mockFetchStoreBlogs(storeUrl)
+}
+
+export interface ArticleTemplateList {
+  templates: string[]
+  /** 'theme' = đọc đủ từ theme (có quyền read_themes); 'articles' = chỉ gom từ bài viết có sẵn (gần đúng). */
+  source: 'theme' | 'articles' | 'none'
+}
+
+/** Khung giao diện bài viết (template_layout) của store — rỗng nếu backend chưa chạy/lỗi (người dùng vẫn tự gõ được). */
+export async function fetchArticleTemplates(storeUrl: string): Promise<ArticleTemplateList> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/article-templates?storeUrl=${encodeURIComponent(storeUrl)}`, {
+      credentials: 'include',
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return { templates: [], source: 'none' }
+    const data = (await res.json()) as { templates?: string[]; source?: 'theme' | 'articles' }
+    return { templates: Array.isArray(data.templates) ? data.templates : [], source: data.source ?? 'articles' }
+  } catch {
+    return { templates: [], source: 'none' }
+  }
 }
 
 const SAMPLE_BLOGS = ['Tin tức', 'Khuyến mãi', 'Blog chia sẻ', 'Sự kiện']

@@ -74,6 +74,7 @@ export function ArticleTable({
                     name={article.title}
                     imageKeyword={article.imageKeyword}
                     aspectRatio={aspectRatio}
+                    allowHeavyCrop={false}
                     className="w-10"
                     rounded="rounded-md"
                   />
